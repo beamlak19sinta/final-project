@@ -8,8 +8,9 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ message: 'Authentication token required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'my_super_secret_key', (err, user) => {
         if (err) {
+            console.warn(`[JWT ERROR] Token verification failed: ${err.message}`);
             return res.status(403).json({ message: 'Invalid or expired token' });
         }
         req.user = user;
@@ -26,7 +27,10 @@ const optionalAuthenticateToken = (req, _res, next) => {
         return next();
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'my_super_secret_key', (err, user) => {
+        if (err) {
+            console.debug(`[JWT DEBUG] Optional token verification failed: ${err.message}`);
+        }
         req.user = err ? null : user;
         next();
     });

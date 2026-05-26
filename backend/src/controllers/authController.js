@@ -5,14 +5,16 @@ const prisma = require('../utils/prisma');
 
 const NATIONAL_ID_REGEX = /^\d{16}$/;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
-const PHONE_REGEX = /^(09\d{8}|\+2519\d{8})$/;
+const PHONE_REGEX = /^(0[79]\d{8}|\+251[79]\d{8})$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const register = async (req, res) => {
     const { name, phoneNumber, identificationNumber, nationalId, password, role } = req.body;
+    console.log(`[AUTH] Registration request received: name='${name}', phoneNumber='${phoneNumber}', nationalId='${nationalId}', identificationNumber='${identificationNumber}', role='${role || 'CITIZEN'}'`);
 
     try {
         if (!nationalId || !NATIONAL_ID_REGEX.test(String(nationalId))) {
+            console.warn(`[AUTH Warning] Registration rejected: National ID '${nationalId}' does not match exactly 16 numeric digits.`);
             return res.status(400).json({ message: 'National ID must be exactly 16 numeric digits' });
         }
 
@@ -21,16 +23,20 @@ const register = async (req, res) => {
             duplicateConditions.push({ identificationNumber });
         }
 
+        console.log(`[AUTH] Checking duplicate users with conditions:`, duplicateConditions);
         const existingUser = await prisma.user.findFirst({
             where: { OR: duplicateConditions }
         });
 
         if (existingUser) {
+            console.warn(`[AUTH Warning] Registration rejected: Duplicate user exists for phone number or IDs.`);
             return res.status(400).json({ message: 'User with this phone number or ID already exists' });
         }
 
+        console.log(`[AUTH] Generating password hash for new user...`);
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        console.log(`[AUTH] Creating new user in Prisma...`);
         const user = await prisma.user.create({
             data: {
                 name,
@@ -42,9 +48,10 @@ const register = async (req, res) => {
             }
         });
 
+        console.log(`[AUTH Success] User successfully registered with database ID: ${user.id}`);
         res.status(201).json({ message: 'User registered successfully', userId: user.id });
     } catch (error) {
-        console.error(error);
+        console.error(`[AUTH Error] Registration failed due to database or server error:`, error);
         res.status(500).json({ message: 'Failed to register user', error: error.message });
     }
 };
@@ -52,8 +59,10 @@ const register = async (req, res) => {
 const forgotPassword = async (req, res) => {
     const { identifier, phoneNumber } = req.body;
     const lookupValue = identifier || phoneNumber;
+    console.log(`[AUTH] Forgot password request received for lookup value: '${lookupValue}'`);
 
     if (!lookupValue || typeof lookupValue !== 'string') {
+        console.warn(`[AUTH Warning] Forgot password rejected: Identifier or phone is missing/invalid.`);
         return res.status(400).json({ message: 'Email or phone is required' });
     }
 
@@ -63,16 +72,19 @@ const forgotPassword = async (req, res) => {
         const isPhone = PHONE_REGEX.test(value);
 
         if (!isEmail && !isPhone) {
+            console.warn(`[AUTH Warning] Forgot password rejected: Identifier '${value}' is not a valid email or phone format.`);
             return res.status(400).json({ message: 'Identifier must be a valid phone number or email format' });
         }
 
         const phoneFromEmail = isEmail ? value.split('@')[0] : value;
+        console.log(`[AUTH] Searching for user by phone number: '${phoneFromEmail}'`);
 
         const user = await prisma.user.findUnique({
             where: { phoneNumber: phoneFromEmail }
         });
 
         if (!user) {
+            console.warn(`[AUTH Warning] Forgot password: No user exists for phone '${phoneFromEmail}'. Returning generic success to prevent email/phone enumeration.`);
             return res.json({
                 success: true,
                 message: 'If an account exists, password reset instructions are ready.'
@@ -80,6 +92,7 @@ const forgotPassword = async (req, res) => {
         }
 
         const token = crypto.randomBytes(32).toString('hex');
+        console.log(`[AUTH] Generated reset token for user ID: ${user.id}. Saving reset token and 30-min expiry to database...`);
 
         await prisma.user.update({
             where: { id: user.id },
@@ -89,29 +102,30 @@ const forgotPassword = async (req, res) => {
             }
         });
 
-        console.log("RESET TOKEN:", token);
-
+        console.log(`[AUTH Success] Forgot password token saved and emitted to console log: '${token}'`);
         return res.json({ success: true, token });
     } catch (error) {
+        console.error(`[AUTH Error] Forgot password request failed due to database or server error:`, error);
         return res.status(500).json({ message: 'Failed to process forgot password request', error: error.message });
     }
 };
 
 const resetPassword = async (req, res) => {
     const { token, newPassword } = req.body;
+    console.log(`[AUTH] Reset password request received with token prefix: '${token ? token.substring(0, 8) + '...' : 'none'}'`);
 
     if (!token || typeof token !== 'string') {
+        console.warn(`[AUTH Warning] Reset password rejected: Reset token is missing or invalid.`);
         return res.status(400).json({ message: 'Reset token is required' });
     }
 
     if (!newPassword || String(newPassword).length < 4) {
+        console.warn(`[AUTH Warning] Reset password rejected: New password length is less than 4 characters.`);
         return res.status(400).json({ message: 'New password must be at least 4 characters long' });
     }
 
     try {
-        console.log("TOKEN RECEIVED:", token);
-        console.log("CURRENT TIME:", new Date());
-
+        console.log(`[AUTH] Verifying reset token in database...`);
         const user = await prisma.user.findFirst({
             where: {
                 resetToken: token,
@@ -120,11 +134,14 @@ const resetPassword = async (req, res) => {
         });
 
         if (!user) {
+            console.warn(`[AUTH Warning] Reset password rejected: Reset token is invalid or has expired.`);
             return res.status(400).json({ message: 'Invalid or expired token' });
         }
 
+        console.log(`[AUTH] Token verified successfully for user: ${user.name} (${user.id}). Hashing new password...`);
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+        console.log(`[AUTH] Saving new password and clearing reset token...`);
         await prisma.user.update({
             where: { id: user.id },
             data: {
@@ -134,43 +151,57 @@ const resetPassword = async (req, res) => {
             }
         });
 
+        console.log(`[AUTH Success] Password successfully reset for user ID: ${user.id}`);
         return res.json({ success: true, message: 'Password reset successful' });
     } catch (error) {
+        console.error(`[AUTH Error] Reset password failed due to server or database error:`, error);
         return res.status(500).json({ message: 'Failed to reset password', error: error.message });
     }
 };
 
 const login = async (req, res) => {
     const { phoneNumber, password } = req.body;
+    console.log(`[AUTH] Login request received for phone number: '${phoneNumber}'`);
 
     try {
+        console.log(`[AUTH] Searching database for user with phone: '${phoneNumber}'`);
         const user = await prisma.user.findUnique({
             where: { phoneNumber }
         });
 
         if (!user) {
+            console.warn(`[AUTH Warning] Login rejected: No user found for phone '${phoneNumber}'`);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        console.log(`[AUTH] User found: ${user.name} (${user.id}). Comparing password hashes...`);
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
+            console.warn(`[AUTH Warning] Login rejected: Password mismatch for user ID: ${user.id}`);
             return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        console.log(`[AUTH] Password validated successfully. Signing JWT token...`);
+        if (!process.env.JWT_SECRET) {
+            console.warn(`[AUTH Warning] JWT_SECRET is NOT set in environment variables! Using standard fallback secret key.`);
         }
 
         const token = jwt.sign(
             { id: user.id, role: user.role, name: user.name },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'my_super_secret_key',
             { expiresIn: '24h' }
         );
+
+        console.log(`[AUTH Success] User '${user.name}' successfully authenticated. JWT token signed and emitted.`);
 
         res.json({
             success: true,
             data: {
                 token,
-                refreshToken: token, // Using same token for now, can implement separate refresh token logic later
+                refreshToken: token,
                 user: {
                     id: user.id,
-                    email: user.phoneNumber + '@placeholder.com', // Mobile app expects email
+                    email: user.phoneNumber + '@placeholder.com',
                     fullName: user.name,
                     role: user.role,
                     phoneNumber: user.phoneNumber,
@@ -179,7 +210,7 @@ const login = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
+        console.error(`[AUTH Error] Login request failed due to database or server error:`, error);
         res.status(500).json({ message: 'Login failed', error: error.message });
     }
 };

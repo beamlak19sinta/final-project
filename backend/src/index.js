@@ -19,6 +19,8 @@ const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
   origin: (origin, callback) => {
+    console.log(`[CORS] Incoming request from origin: ${origin || 'none (non-browser client/mobile)'}`);
+    
     if (!origin) {
       callback(null, true);
       return;
@@ -34,13 +36,15 @@ const corsOptions = {
                       (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
                       
     if (isAllowed) {
+      console.log(`[CORS] Origin '${origin}' matches allowed domains. Permitting credentials.`);
       callback(null, true);
     } else {
+      console.warn(`[CORS Warning] Origin '${origin}' not explicitly whitelisted, but permitting for production compatibility/debugging.`);
       callback(null, true);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   credentials: true,
 };
 
