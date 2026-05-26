@@ -22,42 +22,49 @@ export default function Login() {
         setLoading(true);
         setError('');
 
+        const apiUrl = `${import.meta.env.VITE_API_URL}/auth/login`;
+        const payload = { phoneNumber, password };
+
+        console.log('[LOGIN] Sending POST to:', apiUrl);
+        console.log('[LOGIN] Request payload:', { phoneNumber, password: '***' });
+
         try {
-            const response = await api.post('/auth/login', {
-                phoneNumber,
-                password
-            });
+            const response = await api.post('/auth/login', payload);
 
-            console.log("FULL RESPONSE:", response.data);
+            console.log('[LOGIN] Response status:', response.status);
+            console.log('[LOGIN] Response data:', response.data);
 
-            // FIXED: safe extraction
+            // Backend wraps response in { success, data: { token, refreshToken, user } }
             const data = response.data?.data || response.data;
-            const user = data.user;
-            const token = data.token;
+            const user = data?.user;
+            const token = data?.token;
 
             if (!user || !token) {
-                throw new Error("Invalid response from server");
+                console.error('[LOGIN] Missing user or token in response:', data);
+                throw new Error('Invalid response from server: missing user or token');
             }
 
-            // save auth
+            console.log('[LOGIN] Token received. User role:', user.role);
+
+            // Save auth state
             login(user, token);
             localStorage.setItem('token', token);
 
-            console.log("TOKEN SAVED:", token);
-
-            // redirect by role
+            // Redirect by role (fixed: removed duplicate HELPDESK check from OFFICER branch)
             if (user.role === 'ADMIN') {
                 navigate('/admin');
             } else if (user.role === 'HELPDESK' || user.role === 'HELP_DESK') {
                 navigate('/help-desk');
-            } else if (user.role === 'OFFICER' || user.role === 'HELPDESK' || user.role === 'HELP_DESK') {
+            } else if (user.role === 'OFFICER') {
                 navigate('/officer');
             } else {
                 navigate('/dashboard');
             }
 
         } catch (err) {
-            console.error("LOGIN ERROR:", err);
+            console.error('[LOGIN] Error status:', err?.response?.status);
+            console.error('[LOGIN] Error body:', err?.response?.data);
+            console.error('[LOGIN] Error message:', err?.message);
             setError(getApiErrorMessage(err, 'Login failed. Please check your credentials.'));
         } finally {
             setLoading(false);
