@@ -18,7 +18,27 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: true,
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    
+    const allowed = [
+      'localhost',
+      '127.0.0.1',
+      '.vercel.app'
+    ];
+    
+    const isAllowed = allowed.some(domain => origin.includes(domain)) || 
+                      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
+                      
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,

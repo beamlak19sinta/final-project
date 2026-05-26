@@ -3,7 +3,7 @@ class AppConfig {
     'API_BASE_URL',
     // Default to the production/LAN backend. Override with:
     // flutter run/build --dart-define=API_BASE_URL=http://<ip>:5000/api
-    defaultValue: 'http://192.168.162.213:5000/api',
+    defaultValue: 'https://final-project-616i.onrender.com/api',
   );
   static const List<String> timeSlots = [
     '08:30 - 09:30',
