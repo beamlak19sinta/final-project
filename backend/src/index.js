@@ -18,38 +18,15 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    console.log(`[CORS] Incoming request from origin: ${origin || 'none (non-browser client/mobile)'}`);
-    
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    
-    const allowed = [
-      'localhost',
-      '127.0.0.1',
-      '.vercel.app'
-    ];
-    
-    const isAllowed = allowed.some(domain => origin.includes(domain)) || 
-                      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
-                      
-    if (isAllowed) {
-      console.log(`[CORS] Origin '${origin}' matches allowed domains. Permitting credentials.`);
-      callback(null, true);
-    } else {
-      console.warn(`[CORS Warning] Origin '${origin}' not explicitly whitelisted, but permitting for production compatibility/debugging.`);
-      callback(null, true);
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true,
+  origin: "*",
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+  credentials: false,
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Root and health check routes
 app.get('/', (req, res) => {

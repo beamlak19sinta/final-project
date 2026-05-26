@@ -8,9 +8,17 @@ const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const PHONE_REGEX = /^(0[79]\d{8}|\+251[79]\d{8})$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const sanitizeBody = (body) => {
+    const sanitized = { ...body };
+    if (sanitized.password) sanitized.password = '[HIDDEN]';
+    if (sanitized.newPassword) sanitized.newPassword = '[HIDDEN]';
+    if (sanitized.currentPassword) sanitized.currentPassword = '[HIDDEN]';
+    return JSON.stringify(sanitized);
+};
+
 const register = async (req, res) => {
     const { name, phoneNumber, identificationNumber, nationalId, password, role } = req.body;
-    console.log(`[AUTH] Registration request received: name='${name}', phoneNumber='${phoneNumber}', nationalId='${nationalId}', identificationNumber='${identificationNumber}', role='${role || 'CITIZEN'}'`);
+    console.log(`[AUTH] Registration request received. Body: ${sanitizeBody(req.body)}`);
 
     try {
         if (!nationalId || !NATIONAL_ID_REGEX.test(String(nationalId))) {
@@ -57,9 +65,9 @@ const register = async (req, res) => {
 };
 
 const forgotPassword = async (req, res) => {
+    console.log(`[AUTH] Forgot password request received. Body: ${sanitizeBody(req.body)}`);
     const { identifier, phoneNumber } = req.body;
     const lookupValue = identifier || phoneNumber;
-    console.log(`[AUTH] Forgot password request received for lookup value: '${lookupValue}'`);
 
     if (!lookupValue || typeof lookupValue !== 'string') {
         console.warn(`[AUTH Warning] Forgot password rejected: Identifier or phone is missing/invalid.`);
@@ -111,8 +119,8 @@ const forgotPassword = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
+    console.log(`[AUTH] Reset password request received. Body: ${sanitizeBody(req.body)}`);
     const { token, newPassword } = req.body;
-    console.log(`[AUTH] Reset password request received with token prefix: '${token ? token.substring(0, 8) + '...' : 'none'}'`);
 
     if (!token || typeof token !== 'string') {
         console.warn(`[AUTH Warning] Reset password rejected: Reset token is missing or invalid.`);
@@ -160,8 +168,8 @@ const resetPassword = async (req, res) => {
 };
 
 const login = async (req, res) => {
+    console.log(`[AUTH] Login request received. Body: ${sanitizeBody(req.body)}`);
     const { phoneNumber, password } = req.body;
-    console.log(`[AUTH] Login request received for phone number: '${phoneNumber}'`);
 
     try {
         console.log(`[AUTH] Searching database for user with phone: '${phoneNumber}'`);
