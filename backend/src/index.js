@@ -65,6 +65,29 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API working', timestamp: new Date() });
 });
 
+// Diagnostic database connectivity and schema check
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const prisma = require('./utils/prisma');
+    const userCount = await prisma.user.count();
+    res.json({
+      status: 'success',
+      message: 'Database connection verified',
+      userCount,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('[DB CHECK ERROR] Failed to query User table:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Database check failed',
+      error: error.message,
+      timestamp: new Date()
+    });
+  }
+});
+
+
 // API routes under /api
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
