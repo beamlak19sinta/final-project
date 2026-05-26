@@ -18,12 +18,7 @@ const computeBaseUrl = () => {
     const fromEnv = stripQuotes(envApiUrl).trim();
     if (fromEnv) return fromEnv.replace(/\/$/, '');
 
-    // Vite runs in the browser, so window.location is available.
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-        return 'http://10.161.82.64:5000/api';
-    }
-    return `http://${host}:5000/api`;
+    return 'https://final-project-616i.onrender.com/api';
 };
 
 const normalizedBaseUrl = computeBaseUrl();
