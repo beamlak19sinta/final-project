@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ThemeToggle from '../components/ThemeToggle';
+import api from '../lib/api';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -46,6 +47,28 @@ export default function CitizenLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const t = translations[lang];
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+    useEffect(() => {
+        let mounted = true;
+        const loadNotificationCount = async () => {
+            try {
+                const { data } = await api.get('/notifications');
+                if (!mounted) return;
+                setUnreadNotifications(Number(data?.unreadCount || 0));
+            } catch {
+                if (!mounted) return;
+                setUnreadNotifications(0);
+            }
+        };
+
+        loadNotificationCount();
+        const interval = setInterval(loadNotificationCount, 30000);
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+        };
+    }, [location.pathname]);
 
     const menuItems = [
         { id: 'overview', path: '/dashboard', label: lang === 'en' ? 'Overview' : 'አጠቃላይ እይታ', icon: LayoutDashboard },
@@ -54,6 +77,7 @@ export default function CitizenLayout() {
         { id: 'appointments', path: '/dashboard/appointments', label: t.dashAppointments, icon: Calendar },
         { id: 'track', path: '/dashboard/track', label: lang === 'en' ? 'Track Requests' : 'ጥያቄዎችን ይከታተሉ', icon: CheckCircle },
         { id: 'notifications', path: '/dashboard/notifications', label: lang === 'en' ? 'Notifications' : 'ማሳወቂያዎች', icon: Bell },
+        { id: 'questions', path: '/dashboard/questions', label: lang === 'en' ? 'Questions' : 'ጥያቄዎች', icon: ClipboardList },
         { id: 'account', path: '/dashboard/account', label: t.dashProfile, icon: User },
     ];
 
@@ -82,7 +106,14 @@ export default function CitizenLayout() {
                                         onClick={() => navigate(item.path)}
                                         tooltip={item.label}
                                     >
-                                        <item.icon />
+                                        <div className="relative">
+                                            <item.icon />
+                                            {item.id === 'notifications' && unreadNotifications > 0 ? (
+                                                <span className="absolute -right-2 -top-2 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>

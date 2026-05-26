@@ -1,33 +1,37 @@
 const prisma = require('../src/utils/prisma');
+const bcrypt = require('bcryptjs');
 
-async function main() {
+async function seed() {
     console.log('Seeding database...');
 
-    // Create Sectors
+    // Create sectors and canonical service lists shared by web + mobile.
     const sectorData = [
         {
-            name: 'Vital Statistics',
-            description: 'Birth, Marriage, and Death certifications.',
-            icon: 'User',
+            name: 'Civil Records',
+            description: 'Core records and identity services.',
+            icon: 'Building2',
             services: [
-                { name: 'Birth Certificate', mode: 'QUEUE', availability: 'Mon-Fri' },
-                { name: 'Marriage Registration', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'ID Card Renewal', mode: 'QUEUE', availability: 'Daily' },
+                { name: 'Birth Certificate', description: 'Request and process official birth certificates.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'FileBadge' },
+                { name: 'Marriage Certificate', description: 'Apply for and verify marriage certificate documents.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'HeartHandshake' },
+                { name: 'ID Renewal', description: 'Renew national identity documents with office verification.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'IdCard' },
+                { name: 'Digital ID', description: 'Manage digital ID issuance and renewal support.', mode: 'ONLINE', availability: '24/7', icon: 'ShieldCheck' },
             ]
         },
         {
-            name: 'Land Management',
-            description: 'Property registration and title deeds.',
-            icon: 'Map',
+            name: 'Operations',
+            description: 'Queue, appointments, revenue, and land operations.',
+            icon: 'BriefcaseBusiness',
             services: [
-                { name: 'Land Title Transfer', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Property Valuation', mode: 'APPOINTMENT', availability: 'Tue, Thu' },
+                { name: 'Queue Services', description: 'Take queue tickets and monitor live queue position.', mode: 'QUEUE', availability: 'Mon-Fri', icon: 'Ticket' },
+                { name: 'Revenue Services', description: 'Handle municipal revenue, tax, and payment-related services.', mode: 'ONLINE', availability: '24/7', icon: 'Landmark' },
+                { name: 'Land Title Services', description: 'Submit and track land title and transfer processes.', mode: 'ONLINE', availability: '24/7', icon: 'MapPinned' },
+                { name: 'Appointment Booking', description: 'Book service appointments across available departments.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'CalendarDays' }
             ]
         }
     ];
 
     for (const s of sectorData) {
-        await prisma.serviceSector.upsert({
+        const sector = await prisma.serviceSector.upsert({
             where: { name: s.name },
             update: {
                 description: s.description,
@@ -37,15 +41,35 @@ async function main() {
                 name: s.name,
                 description: s.description,
                 icon: s.icon,
-                services: {
-                    create: s.services
-                }
             }
         });
+
+        for (const svc of s.services) {
+            const serviceId = `${sector.id}-${svc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+            await prisma.service.upsert({
+                where: { id: serviceId },
+                update: {
+                    name: svc.name,
+                    description: svc.description,
+                    mode: svc.mode,
+                    availability: svc.availability,
+                    icon: svc.icon,
+                    sectorId: sector.id
+                },
+                create: {
+                    id: serviceId,
+                    name: svc.name,
+                    description: svc.description,
+                    mode: svc.mode,
+                    availability: svc.availability,
+                    icon: svc.icon,
+                    sectorId: sector.id
+                }
+            });
+        }
     }
 
     // Create Admin and Officer
-    const bcrypt = require('bcryptjs');
     const adminPassword = await bcrypt.hash('admin123', 10);
     const officerPassword = await bcrypt.hash('officer123', 10);
 
@@ -58,7 +82,8 @@ async function main() {
                 phoneNumber: '0911000000',
                 password: adminPassword,
                 role: 'ADMIN',
-                identificationNumber: 'ADM-001'
+                identificationNumber: 'ADM-001',
+                nationalId: '1111111111111111'
             }
         }),
         prisma.user.upsert({
@@ -69,15 +94,29 @@ async function main() {
                 phoneNumber: '0922000000',
                 password: officerPassword,
                 role: 'OFFICER',
-                identificationNumber: 'OFF-001'
+                identificationNumber: 'OFF-001',
+                nationalId: '2222222222222222'
             }
-        })
+        }),
+        prisma.user.upsert({
+            where: { phoneNumber: '0933333331' },
+            update: {},
+            create: {
+                name: 'Help Desk Officer',
+                
+                phoneNumber: '0933333331',
+                password:'123help',
+                role: 'HELP_DESK',
+                identificationNumber: 'HD-001',
+                nationalId: '3333333333333333'
+            }
+        }),
     ]);
 
-    console.log('Seeding completed:', sectors.length, 'sectors and', users.length, 'users created');
+    console.log('Seeding completed:', sectorData.length, 'sectors and', users.length, 'users created');
 }
 
-main()
+seed()
     .catch((e) => {
         console.error(e);
         process.exit(1);

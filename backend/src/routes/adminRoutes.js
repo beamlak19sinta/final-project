@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const helpdeskController = require('../controllers/helpdeskController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 router.use(authenticateToken);
@@ -16,5 +17,7 @@ router.delete('/users/:id', adminController.deleteUser);
 // Settings
 router.get('/settings', adminController.getSettings);
 router.patch('/settings', adminController.updateSettings);
+router.get('/questions', helpdeskController.getQuestions);
+router.patch('/questions/:id/reply', helpdeskController.replyQuestion);
 
 module.exports = router;

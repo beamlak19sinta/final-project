@@ -1,43 +1,95 @@
 const prisma = require('../utils/prisma');
 
+// ========================
+// 🔧 Helper: Date range fix
+// ========================
+const getDateRange = (dateStr) => {
+    const start = new Date(dateStr);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(dateStr);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+};
+
+// ========================
+// ✅ BOOK APPOINTMENT
+// ========================
 const bookAppointment = async (req, res) => {
     const { serviceId, date, appointmentDate, timeSlot } = req.body;
-    // Mobile app sends appointmentDate, web might send date
     const bookingDate = date || appointmentDate;
     const userId = req.user.id;
 
     try {
+        // ✅ Validate input
+        if (!bookingDate) {
+            return res.status(400).json({ message: 'Date is required' });
+        }
+
+        if (!serviceId) {
+            return res.status(400).json({ message: 'Service ID is required' });
+        }
+
+        if (!timeSlot) {
+            return res.status(400).json({ message: 'Time slot is required' });
+        }
+
+        const { start, end } = getDateRange(bookingDate);
+
+        // ✅ Prevent duplicate booking same day
         const existingAppointment = await prisma.appointment.findFirst({
             where: {
                 userId,
-                date: new Date(bookingDate),
-                status: 'SCHEDULED'
+                date: { gte: start, lte: end },
+                status: { in: ['PENDING', 'SCHEDULED'] }
             }
         });
 
         if (existingAppointment) {
-            return res.status(400).json({ message: 'You already have a scheduled appointment for this day' });
+            return res.status(400).json({
+                message: 'You already have an appointment for this day'
+            });
         }
 
+        // ✅ Check service
+        const service = await prisma.service.findUnique({
+            where: { id: String(serviceId) }
+        });
+
+        if (!service) {
+            return res.status(404).json({ message: 'Service not found' });
+        }
+
+        if (service.mode !== 'APPOINTMENT') {
+            return res.status(400).json({ message: 'Selected service is not appointment-based' });
+        }
+
+        // ✅ Create appointment
         const appointment = await prisma.appointment.create({
             data: {
                 userId,
-                serviceId,
+                serviceId: String(serviceId), // 🔥 FIXED
                 date: new Date(bookingDate),
                 timeSlot,
                 status: 'PENDING'
             },
-            include: { service: true }
+            include: {
+                service: {
+                    include: { sector: true }
+                }
+            }
         });
 
-        // Create notification for user
-        const notificationModel = prisma.notification || prisma.notifications;
+        // ✅ Notification (safe)
+        const notificationModel = prisma.notification ?? prisma.notifications;
+
         if (notificationModel) {
             await notificationModel.create({
                 data: {
                     userId,
                     title: 'Appointment Request Received',
-                    message: `Your appointment request for ${appointment.service.name} has been received and is pending officer approval.`,
+                    message: `Your appointment for ${appointment.service.name} is pending approval.`,
                     type: 'APPOINTMENT_REQUESTED',
                     relatedId: appointment.id
                 }
@@ -45,225 +97,238 @@ const bookAppointment = async (req, res) => {
         }
 
         res.status(201).json(appointment);
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to book appointment', error: error.message });
+        console.error("BOOK ERROR:", error);
+        res.status(500).json({
+            message: 'Failed to book appointment',
+            error: error.message
+        });
     }
 };
 
+// ========================
+// ✅ GET MY APPOINTMENTS
+// ========================
 const getMyAppointments = async (req, res) => {
     const userId = req.user.id;
+
     try {
         const appointments = await prisma.appointment.findMany({
             where: { userId },
-            include: { service: { include: { sector: true } } },
+            include: {
+                service: {
+                    include: { sector: true }
+                }
+            },
             orderBy: { date: 'asc' }
         });
+
+        console.log("User ID:", userId);
+        console.log("Appointments:", appointments);
+
         res.json(appointments);
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch appointments', error: error.message });
-    }
-};
-
-const getAvailableSlots = async (req, res) => {
-    const { serviceId, date } = req.params;
-    const slots = ["08:30 - 09:30", "09:30 - 10:30", "10:30 - 11:30", "14:00 - 15:00", "15:00 - 16:30"];
-
-    try {
-        const bookedAppointments = await prisma.appointment.findMany({
-            where: {
-                serviceId,
-                date: new Date(date),
-                status: 'SCHEDULED'
-            },
-            select: { timeSlot: true }
+        console.error("FETCH ERROR:", error);
+        res.status(500).json({
+            message: 'Failed to fetch appointments',
+            error: error.message
         });
-
-        const bookedSlots = bookedAppointments.map(a => a.timeSlot);
-        // Simple logic: allow up to 3 people per slot (mocking capacity)
-        const slotCounts = bookedSlots.reduce((acc, slot) => {
-            acc[slot] = (acc[slot] || 0) + 1;
-            return acc;
-        }, {});
-
-        const availableSlots = slots.filter(slot => (slotCounts[slot] || 0) < 3);
-
-        res.json(availableSlots);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch slots', error: error.message });
     }
 };
 
+// ========================
+// ✅ GET SECTOR APPOINTMENTS
+// ========================
 const getSectorAppointments = async (req, res) => {
     const { sectorId } = req.params;
+
     try {
         const appointments = await prisma.appointment.findMany({
             where: {
-                service: { sectorId }
+                service: {
+                    sectorId: String(sectorId) // 🔥 FIXED
+                }
             },
-            include: { user: true, service: true },
-            orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }]
+            include: {
+                user: true,
+                service: {
+                    include: { sector: true }
+                }
+            },
+            orderBy: [
+                { date: 'asc' },
+                { timeSlot: 'asc' }
+            ]
         });
+
         res.json(appointments);
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch sector appointments', error: error.message });
+        console.error("SECTOR ERROR:", error);
+        res.status(500).json({
+            message: 'Failed to fetch sector appointments',
+            error: error.message
+        });
     }
 };
 
-const getAvailableSlotsQuery = async (req, res) => {
-    // Support query params for mobile app
-    const { serviceId, date } = req.query;
-    const slots = ["08:30 - 09:30", "09:30 - 10:30", "10:30 - 11:30", "14:00 - 15:00", "15:00 - 16:30"];
+// ========================
+// ✅ GET AVAILABLE SLOTS
+// ========================
+const getAvailableSlots = async (req, res) => {
+    const serviceId = String(req.query.serviceId || req.params.serviceId || '').trim();
+    const date = String(req.query.date || req.params.date || '').trim();
+
+    if (!serviceId) {
+        return res.status(400).json({ message: 'serviceId is required' });
+    }
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {
+        return res.status(400).json({ message: 'date must be in YYYY-MM-DD format' });
+    }
+
+    const slots = [
+        "08:30 - 09:30",
+        "09:30 - 10:30",
+        "10:30 - 11:30",
+        "14:00 - 15:00",
+        "15:00 - 16:30"
+    ];
 
     try {
+        const service = await prisma.service.findUnique({
+            where: { id: serviceId },
+            select: { id: true, mode: true },
+        });
+
+        if (!service) {
+            return res.status(404).json({ message: 'Service not found' });
+        }
+
+        if (service.mode !== 'APPOINTMENT') {
+            return res.status(400).json({ message: 'Selected service is not appointment-based' });
+        }
+
+        const { start, end } = getDateRange(date);
+
         const bookedAppointments = await prisma.appointment.findMany({
             where: {
-                serviceId,
-                date: new Date(date),
-                status: 'SCHEDULED'
+                serviceId: String(serviceId), // 🔥 FIXED
+                date: { gte: start, lte: end },
+                status: { in: ['PENDING', 'SCHEDULED'] }
             },
             select: { timeSlot: true }
         });
 
-        const bookedSlots = bookedAppointments.map(a => a.timeSlot);
-        const slotCounts = bookedSlots.reduce((acc, slot) => {
-            acc[slot] = (acc[slot] || 0) + 1;
+        const slotCounts = bookedAppointments.reduce((acc, a) => {
+            acc[a.timeSlot] = (acc[a.timeSlot] || 0) + 1;
             return acc;
         }, {});
 
-        const availableSlots = slots.map(slot => ({
-            slot,
-            isAvailable: (slotCounts[slot] || 0) < 3
-        }));
+        const availableSlots = slots.filter(
+            slot => (slotCounts[slot] || 0) < 3
+        );
 
-        res.json({
-            success: true,
-            data: availableSlots
-        });
+        res.json(availableSlots);
+
     } catch (error) {
+        console.error("SLOT ERROR:", error);
         res.status(500).json({
-            success: false,
             message: 'Failed to fetch slots',
             error: error.message
         });
     }
 };
 
+// ========================
+// ❌ CANCEL APPOINTMENT
+// ========================
 const cancelAppointment = async (req, res) => {
     const { appointmentId } = req.params;
     const userId = req.user.id;
 
     try {
         const appointment = await prisma.appointment.findFirst({
-            where: { id: appointmentId, userId }
+            where: { id: String(appointmentId), userId }
         });
 
         if (!appointment) {
-            return res.status(404).json({
-                success: false,
-                message: 'Appointment not found'
-            });
+            return res.status(404).json({ message: 'Appointment not found' });
         }
 
-        if (appointment.status !== 'SCHEDULED') {
+        if (!['PENDING', 'SCHEDULED'].includes(appointment.status)) {
             return res.status(400).json({
-                success: false,
-                message: 'Only scheduled appointments can be cancelled'
+                message: 'Only pending or scheduled appointments can be cancelled'
             });
         }
 
         await prisma.appointment.update({
-            where: { id: appointmentId },
+            where: { id: String(appointmentId) },
             data: { status: 'CANCELLED' }
         });
 
-        res.json({
-            success: true,
-            message: 'Appointment cancelled successfully'
-        });
+        res.json({ message: 'Appointment cancelled successfully' });
+
     } catch (error) {
+        console.error("CANCEL ERROR:", error);
         res.status(500).json({
-            success: false,
             message: 'Failed to cancel appointment',
             error: error.message
         });
     }
 };
 
+// ========================
+// 🔄 UPDATE STATUS
+// ========================
 const updateAppointmentStatus = async (req, res) => {
     const { appointmentId } = req.params;
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
+
+    const allowed = ['PENDING', 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'REJECTED'];
+
+    if (!allowed.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    if (status === 'REJECTED' && (!rejectionReason || !String(rejectionReason).trim())) {
+        return res.status(400).json({ message: 'Rejection reason is required when rejecting an appointment' });
+    }
 
     try {
         const appointment = await prisma.appointment.update({
-            where: { id: appointmentId },
-            data: { status },
+            where: { id: String(appointmentId) },
+            data: {
+                status,
+                rejectionReason: status === 'REJECTED' ? String(rejectionReason).trim() : null
+            },
             include: { service: true, user: true }
         });
 
-        // Notify user if status changed to SCHEDULED, COMPLETED, CANCELLED, or REJECTED
-        const notificationModel = prisma.notification || prisma.notifications;
-        if (notificationModel) {
-            let title = '';
-            let message = '';
-            let type = '';
-
-            switch (status) {
-                case 'SCHEDULED':
-                    title = 'Appointment Approved';
-                    message = `Your appointment for ${appointment.service.name} has been approved for ${new Date(appointment.date).toLocaleDateString()} at ${appointment.timeSlot}.`;
-                    type = 'APPOINTMENT_CONFIRMED';
-                    break;
-                case 'COMPLETED':
-                    title = 'Appointment Completed';
-                    message = `Your appointment for ${appointment.service.name} has been marked as completed.`;
-                    type = 'APPOINTMENT_COMPLETED';
-                    break;
-                case 'CANCELLED':
-                    title = 'Appointment Cancelled';
-                    message = `Your appointment for ${appointment.service.name} has been cancelled.`;
-                    type = 'APPOINTMENT_CANCELLED';
-                    break;
-                case 'REJECTED':
-                    title = 'Appointment Rejected';
-                    message = `Your appointment for ${appointment.service.name} has been rejected.`;
-                    type = 'APPOINTMENT_REJECTED';
-                    break;
-            }
-
-            if (title) {
-                await notificationModel.create({
-                    data: {
-                        userId: appointment.userId,
-                        title,
-                        message,
-                        type,
-                        relatedId: appointment.id
-                    }
-                });
-            }
-        }
-
         res.json({
-            success: true,
-            message: `Appointment status updated to ${status}`,
+            message: `Appointment updated to ${status}`,
             data: appointment
         });
+
     } catch (error) {
+        console.error("UPDATE ERROR:", error);
         res.status(500).json({
-            success: false,
             message: 'Failed to update appointment status',
             error: error.message
         });
     }
 };
 
+// ========================
+// 📦 EXPORTS
+// ========================
 module.exports = {
     bookAppointment,
     getMyAppointments,
-    getAvailableSlots,
     getSectorAppointments,
-    getAvailableSlotsQuery,
+    getAvailableSlots,
     cancelAppointment,
     updateAppointmentStatus
 };
-

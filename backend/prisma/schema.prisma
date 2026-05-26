@@ -5,14 +5,18 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id                   String           @id @default(uuid())
   name                 String
   identificationNumber String?          @unique
+  nationalId           String           @unique
   phoneNumber          String           @unique
   password             String
+  resetToken           String?
+  resetTokenExpiry     DateTime?
   role                 Role             @default(CITIZEN)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
@@ -22,7 +26,10 @@ model User {
   queues               Queue[]
   officerRequests      ServiceRequest[] @relation("OfficerProcesses")
   requests             ServiceRequest[] @relation("CitizenRequests")
+  questions            HelpDeskQuestion[] @relation("QuestionAuthor")
+  repliedQuestions     HelpDeskQuestion[] @relation("QuestionReplier")
   logs                 SystemLog[]
+  passwordResetTokens  PasswordResetToken[]
 }
 
 model Notification {
@@ -95,12 +102,45 @@ model Appointment {
   date      DateTime
   timeSlot  String
   status    AppointmentStatus @default(PENDING)
+  rejectionReason String?
   userId    String
   serviceId String
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   service   Service           @relation(fields: [serviceId], references: [id])
   user      User              @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HelpDeskQuestion {
+  id        String   @id @default(uuid())
+  question  String
+  status    String   @default("PENDING")
+  reply     String?
+  forwardedToAdmin Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  repliedAt DateTime?
+  userId    String?
+  repliedById String?
+  user      User?    @relation("QuestionAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  repliedBy User?    @relation("QuestionReplier", fields: [repliedById], references: [id], onDelete: SetNull)
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  message   String
+  rating    Int?
+  createdAt DateTime @default(now())
 }
 
 model ServiceRequest {
@@ -128,6 +168,7 @@ model SystemSetting {
 enum Role {
   CITIZEN
   HELPDESK
+  HELP_DESK
   OFFICER
   ADMIN
 }

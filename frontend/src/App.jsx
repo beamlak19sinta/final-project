@@ -4,8 +4,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Feedback from './pages/Feedback';
 import CitizenDashboard from './pages/CitizenDashboard';
 import OfficerDashboard from './pages/OfficerDashboard';
+import HelpDesk from './pages/HelpDesk';
 import './index.css';
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -26,6 +30,7 @@ import Appointments from './pages/citizen/Appointments';
 import TrackStatus from './pages/citizen/TrackStatus';
 import Notifications from './pages/citizen/Notifications';
 import Account from './pages/citizen/Account';
+import CitizenQuestions from './pages/citizen/Questions';
 
 import OfficerLayout from './layouts/OfficerLayout';
 import QueueManagement from './pages/officer/QueueManagement';
@@ -39,6 +44,7 @@ import UserManagement from './pages/admin/UserManagement';
 import ServiceManagement from './pages/admin/ServiceManagement';
 import Reports from './pages/admin/Reports';
 import Settings from './pages/admin/Settings';
+import AdminQuestions from './pages/admin/Questions';
 
 import PublicLayout from './layouts/PublicLayout';
 
@@ -49,6 +55,9 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/feedback" element={<Feedback />} />
       </Route>
 
       {/* Citizen Dashboard Routes */}
@@ -67,13 +76,14 @@ function AppRoutes() {
         <Route path="track" element={<TrackStatus />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="account" element={<Account />} />
+        <Route path="questions" element={<CitizenQuestions />} />
       </Route>
 
       {/* Officer Dashboard Routes */}
       <Route
         path="/officer"
         element={
-          <ProtectedRoute roles={['OFFICER', 'HELPDESK']}>
+          <ProtectedRoute roles={['OFFICER', 'HELPDESK', 'HELP_DESK']}>
             <OfficerLayout />
           </ProtectedRoute>
         }
@@ -84,6 +94,14 @@ function AppRoutes() {
         <Route path="appointments" element={<AppointmentsOfficer />} />
         <Route path="history" element={<History />} />
       </Route>
+      <Route
+        path="/help-desk"
+        element={
+          <ProtectedRoute roles={['HELP_DESK', 'HELPDESK', 'OFFICER', 'ADMIN']}>
+            <HelpDesk />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin"
         element={
@@ -98,6 +116,7 @@ function AppRoutes() {
         <Route path="services" element={<ServiceManagement />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="questions" element={<AdminQuestions />} />
       </Route>
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />

@@ -17,6 +17,21 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+const optionalAuthenticateToken = (req, _res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        req.user = null;
+        return next();
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        req.user = err ? null : user;
+        next();
+    });
+};
+
 const authorizeRoles = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
@@ -26,4 +41,4 @@ const authorizeRoles = (...roles) => {
     };
 };
 
-module.exports = { authenticateToken, authorizeRoles };
+module.exports = { authenticateToken, optionalAuthenticateToken, authorizeRoles };

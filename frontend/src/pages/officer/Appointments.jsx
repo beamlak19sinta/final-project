@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useToast } from '../../context/ToastContext';
 import api from '../../lib/api';
+
 import {
     Card,
     CardHeader,
@@ -9,9 +10,19 @@ import {
     CardDescription,
     CardContent
 } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+
 import {
     Select,
     SelectContent,
@@ -19,41 +30,46 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+
 import {
-    Calendar,
     Search,
     RefreshCcw,
-    CheckCircle,
-    XCircle,
-    Clock,
-    User,
     AlertCircle
 } from 'lucide-react';
 
-export default function Appointments() {
-    const { user } = useAuth();
+export default function AppointmentControl() {
+
     const { lang } = useLanguage();
+    const { showToast } = useToast();
+
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(false);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+
     const [sectors, setSectors] = useState([]);
     const [selectedSector, setSelectedSector] = useState(null);
+    const [rejectModal, setRejectModal] = useState({ open: false, appointmentId: null });
+    const [rejectionReason, setRejectionReason] = useState('');
 
     useEffect(() => {
         fetchSectors();
     }, []);
 
     useEffect(() => {
-        if (selectedSector) {
-            fetchAppointments();
+        if (selectedSector?.id) {
+            fetchAppointments(selectedSector.id);
         }
     }, [selectedSector]);
 
     const fetchSectors = async () => {
         try {
-            const { data } = await api.get('/services/sectors');
+            const res = await api.get('/services/sectors');
+            const data = res.data || [];
+
             setSectors(data);
+
             if (data.length > 0) {
                 setSelectedSector(data[0]);
             }
@@ -62,34 +78,86 @@ export default function Appointments() {
         }
     };
 
-    const fetchAppointments = async () => {
-        if (!selectedSector) return;
+    // ✅ FIXED FETCH
+    const fetchAppointments = async (sectorId) => {
+        if (!sectorId) return;
+
         setLoading(true);
+
         try {
-            const { data } = await api.get(`/appointments/sector/${selectedSector.id}`);
+            const res = await api.get(`/appointments/sector/${sectorId}`);
+
+            console.log("RAW APPOINTMENTS:", res.data);
+
+            const data = Array.isArray(res.data) ? res.data : [];
+
             setAppointments(data);
+
         } catch (err) {
             console.error('Failed to fetch appointments', err);
+            setAppointments([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleUpdateStatus = async (appointmentId, status) => {
+    const handleUpdateStatus = async (appointmentId, status, extraPayload = {}) => {
+        const id = String(appointmentId);
+        if (status === 'SCHEDULED') {
+            console.log('APPROVE CLICKED', id, status);
+        } else if (status === 'REJECTED') {
+            console.log('REJECT CLICKED', id, status);
+        } else {
+            console.log('APPOINTMENT STATUS CLICKED', id, status);
+        }
+
         try {
-            await api.patch(`/appointments/status/${appointmentId}`, { status });
-            fetchAppointments();
+            const { data } = await api.patch(`/appointments/${id}/status`, { status, ...extraPayload });
+
+            const updated = data?.data;
+            if (updated && typeof updated === 'object') {
+                setAppointments((prev) =>
+                    (prev || []).map((a) => (String(a.id) === id ? { ...a, ...updated } : a))
+                );
+            }
+
+            showToast(data?.message || 'Appointment updated', 'success');
+            await fetchAppointments(selectedSector?.id);
         } catch (err) {
-            console.error('Failed to update status', err);
-            alert('Failed to update status. Make sure the backend endpoint is implemented.');
+            console.error('Failed to update appointment status', err);
+            showToast(
+                err.response?.data?.message || err.message || 'Failed to update appointment',
+                'error'
+            );
         }
     };
 
-    const filteredAppointments = appointments.filter(app => {
-        const matchesSearch = app.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            app.user?.phoneNumber?.includes(searchQuery) ||
-            app.service?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
+    const openRejectModal = (appointmentId) => {
+        setRejectionReason('');
+        setRejectModal({ open: true, appointmentId });
+    };
+
+    const submitReject = async () => {
+        if (!rejectionReason.trim()) {
+            showToast('Rejection reason is required', 'error');
+            return;
+        }
+        await handleUpdateStatus(rejectModal.appointmentId, 'REJECTED', { rejectionReason: rejectionReason.trim() });
+        setRejectModal({ open: false, appointmentId: null });
+        setRejectionReason('');
+    };
+
+    // ✅ SAFE FILTER
+    const filteredAppointments = (appointments || []).filter(app => {
+
+        const matchesSearch =
+            app?.user?.name?.toLowerCase()?.includes(searchQuery.toLowerCase()) ||
+            app?.user?.phoneNumber?.includes(searchQuery) ||
+            app?.service?.name?.toLowerCase()?.includes(searchQuery.toLowerCase());
+
+        const matchesStatus =
+            statusFilter === 'all' || app?.status === statusFilter;
+
         return matchesSearch && matchesStatus;
     });
 
@@ -106,191 +174,164 @@ export default function Appointments() {
 
     return (
         <div className="space-y-8">
-            {/* Header Section */}
+
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-4xl font-black tracking-tight">
+                    <h2 className="text-4xl font-black">
                         {lang === 'en' ? 'Appointments' : 'ቀጠሮዎች'}
                     </h2>
                     <p className="text-muted-foreground font-semibold mt-2">
-                        {lang === 'en' ? 'Manage scheduled visits and registrations' : 'የተያዙ ጉብኝቶችን እና ምዝገባዎችን ያስተዳድሩ'}
+                        Manage scheduled visits and registrations
                     </p>
                 </div>
+
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={fetchAppointments}
-                    className="rounded-xl gap-2 font-bold"
+                    onClick={() => fetchAppointments(selectedSector?.id)}
                     disabled={loading}
                 >
                     <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    {lang === 'en' ? 'Refresh' : 'አድስ'}
+                    Refresh
                 </Button>
             </div>
 
-            {/* Sector Selector */}
-            {sectors.length > 1 && (
-                <Card className="rounded-3xl border-border">
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <label className="text-sm font-bold">
-                                {lang === 'en' ? 'Active Sector:' : 'ንቁ ዘርፍ:'}
-                            </label>
-                            <Select value={selectedSector?.id} onValueChange={(id) => setSelectedSector(sectors.find(s => s.id === id))}>
-                                <SelectTrigger className="w-64 rounded-xl font-bold">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sectors.map(sector => (
-                                        <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+            <Card>
+                <CardContent className="p-6 flex gap-4 items-center">
+                    <label className="font-bold">Sector:</label>
 
-            {/* Search and Filter */}
-            <Card className="rounded-3xl border-border">
-                <CardContent className="p-6">
-                    <div className="flex gap-4">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                                placeholder={lang === 'en' ? 'Search by citizen, phone, or service...' : 'በስም፣ ስልክ ወይም አገልግሎት ይፈልጉ...'}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 rounded-xl font-semibold"
-                            />
-                        </div>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-48 rounded-xl font-bold">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{lang === 'en' ? 'All Status' : 'ሁሉም ሁኔታ'}</SelectItem>
-                                <SelectItem value="PENDING">{lang === 'en' ? 'Pending Approval' : 'ፍቃድ በመጠባበቅ ላይ'}</SelectItem>
-                                <SelectItem value="SCHEDULED">{lang === 'en' ? 'Scheduled' : 'የተያዘ'}</SelectItem>
-                                <SelectItem value="COMPLETED">{lang === 'en' ? 'Completed' : 'ተጠናቋል'}</SelectItem>
-                                <SelectItem value="CANCELLED">{lang === 'en' ? 'Cancelled' : 'ተሰርዟል'}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <Select
+                        value={String(selectedSector?.id || '')}
+                        onValueChange={(id) =>
+                            setSelectedSector(
+                                sectors.find(s => String(s.id) === String(id))
+                            )
+                        }
+                    >
+                        <SelectTrigger className="w-64">
+                            <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                            {sectors.map(sector => (
+                                <SelectItem key={sector.id} value={String(sector.id)}>
+                                    {sector.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </CardContent>
             </Card>
 
-            {/* Appointments List */}
-            <Card className="rounded-[32px] border-border">
-                <CardHeader className="pb-4">
-                    <CardTitle className="text-2xl font-black">
-                        {lang === 'en' ? 'Appointment List' : 'የቀጠሮዎች ዝርዝር'}
-                    </CardTitle>
-                    <CardDescription className="font-semibold">
-                        {filteredAppointments.length} {lang === 'en' ? 'appointments found' : 'ቀጠሮዎች ተገኝተዋል'}
+            <Card>
+                <CardContent className="p-6 flex gap-4">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-3 w-4 h-4" />
+                        <Input
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-48">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="PENDING">Pending</SelectItem>
+                            <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                            <SelectItem value="REJECTED">Rejected</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Appointments</CardTitle>
+                    <CardDescription>
+                        {filteredAppointments.length} found
                     </CardDescription>
                 </CardHeader>
+
                 <CardContent>
-                    {filteredAppointments.length > 0 ? (
+                    {loading ? (
+                        <p>Loading...</p>
+                    ) : filteredAppointments.length > 0 ? (
                         <div className="space-y-3">
-                            {filteredAppointments.map((app) => (
+                            {filteredAppointments.map(app => (
                                 <div
                                     key={app.id}
-                                    className="p-6 rounded-2xl border-2 border-border hover:border-primary/30 transition-all flex items-center justify-between"
+                                    className="p-4 border rounded-xl flex justify-between items-center"
                                 >
-                                    <div className="flex items-center gap-6 flex-1">
-                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                            <Calendar className="w-6 h-6 text-primary" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <h4 className="font-black text-lg">{app.user?.name}</h4>
-                                                <Badge className={`${getStatusColor(app.status)} font-bold`}>
-                                                    {app.status}
-                                                </Badge>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm text-muted-foreground font-semibold flex-wrap">
-                                                <span className="flex items-center gap-1">
-                                                    <User className="w-3 h-3" />
-                                                    {app.user?.phoneNumber}
-                                                </span>
-                                                <span>•</span>
-                                                <span className="font-bold text-foreground">{app.service?.name}</span>
-                                                <span>•</span>
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {new Date(app.date).toLocaleDateString()}
-                                                </span>
-                                                <span>•</span>
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {app.timeSlot}
-                                                </span>
-                                            </div>
-                                        </div>
+                                    <div>
+                                        <p className="font-bold">{app?.user?.name}</p>
+                                        <p className="text-sm text-gray-500">
+                                            {app?.service?.name} • {new Date(app?.date).toDateString()} • {app?.timeSlot}
+                                        </p>
+
+                                        <Badge className={getStatusColor(app.status)}>
+                                            {app.status}
+                                        </Badge>
                                     </div>
 
-                                    {app.status === 'SCHEDULED' && (
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleUpdateStatus(app.id, 'COMPLETED')}
-                                                className="rounded-xl font-bold bg-green-600 hover:bg-green-700 gap-2"
-                                            >
-                                                <CheckCircle className="w-4 h-4" />
-                                                {lang === 'en' ? 'Complete' : 'አጠናቅ'}
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() => handleUpdateStatus(app.id, 'CANCELLED')}
-                                                className="rounded-xl font-bold gap-2"
-                                            >
-                                                <XCircle className="w-4 h-4" />
-                                                {lang === 'en' ? 'Cancel' : 'ሰርዝ'}
-                                            </Button>
-                                        </div>
-                                    )}
+                                    <div className="flex gap-2">
+                                        {app.status === 'PENDING' && (
+                                            <>
+                                                <Button size="sm" onClick={() => handleUpdateStatus(app.id, 'SCHEDULED')}>
+                                                    Approve
+                                                </Button>
+                                                <Button size="sm" variant="destructive" onClick={() => openRejectModal(app.id)}>
+                                                    Reject
+                                                </Button>
+                                            </>
+                                        )}
 
-                                    {app.status === 'PENDING' && (
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleUpdateStatus(app.id, 'SCHEDULED')}
-                                                className="rounded-xl font-bold bg-blue-600 hover:bg-blue-700 gap-2"
-                                            >
-                                                <CheckCircle className="w-4 h-4" />
-                                                {lang === 'en' ? 'Approve' : 'ፍቀድ'}
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() => handleUpdateStatus(app.id, 'REJECTED')}
-                                                className="rounded-xl font-bold gap-2"
-                                            >
-                                                <XCircle className="w-4 h-4" />
-                                                {lang === 'en' ? 'Reject' : 'ውድቅ አድርግ'}
-                                            </Button>
-                                        </div>
-                                    )}
+                                        {app.status === 'SCHEDULED' && (
+                                            <>
+                                                <Button size="sm" onClick={() => handleUpdateStatus(app.id, 'COMPLETED')}>
+                                                    Complete
+                                                </Button>
+                                                <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(app.id, 'CANCELLED')}>
+                                                    Cancel
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="py-20 text-center">
-                            <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-                                <AlertCircle className="w-8 h-8 text-muted-foreground" />
-                            </div>
-                            <h3 className="text-xl font-black text-muted-foreground mb-2">
-                                {lang === 'en' ? 'No Appointments Found' : 'ምንም ቀጠሮዎች አልተገኙም'}
-                            </h3>
-                            <p className="text-muted-foreground font-semibold">
-                                {lang === 'en' ? 'Try changing your filters or searching for something else' : 'ማጣሪያዎችዎን ለመለወጥ ወይም ሌላ ነገር ለመፈለግ ይሞክሩ'}
-                            </p>
+                        <div className="text-center py-10 text-gray-500">
+                            <AlertCircle className="mx-auto mb-2" />
+                            No appointments found
                         </div>
                     )}
                 </CardContent>
             </Card>
+            <Dialog open={rejectModal.open} onOpenChange={(open) => setRejectModal({ open, appointmentId: open ? rejectModal.appointmentId : null })}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Appointment</DialogTitle>
+                        <DialogDescription>Provide a clear rejection reason for the citizen.</DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Reason for rejection"
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRejectModal({ open: false, appointmentId: null })}>Cancel</Button>
+                        <Button variant="destructive" onClick={submitReject}>Submit Rejection</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+               

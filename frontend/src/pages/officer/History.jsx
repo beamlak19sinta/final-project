@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import api from '../../lib/api';
 import {
@@ -31,7 +30,6 @@ import {
 } from 'lucide-react';
 
 export default function History() {
-    const { user } = useAuth();
     const { lang } = useLanguage();
     const [queueHistory, setQueueHistory] = useState([]);
     const [requestHistory, setRequestHistory] = useState([]);
@@ -119,7 +117,7 @@ export default function History() {
         return items.filter(item => {
             const searchLower = searchQuery.toLowerCase();
             if (historyType === 'queue') {
-                return item.ticketNumber?.toLowerCase().includes(searchLower) ||
+                return String(item.ticketNumber ?? '').toLowerCase().includes(searchLower) ||
                     item.user?.name?.toLowerCase().includes(searchLower) ||
                     item.user?.phoneNumber?.includes(searchQuery) ||
                     item.service?.name?.toLowerCase().includes(searchLower);

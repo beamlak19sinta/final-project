@@ -1,7 +1,20 @@
 const prisma = require('../utils/prisma');
 
+const resolveRequestedUserId = (req) => {
+    const paramUserId = req.params.userId;
+    const authUserId = req.user.id;
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!paramUserId || paramUserId === authUserId || isAdmin) {
+        return { userId: paramUserId || authUserId, forbidden: false };
+    }
+    return { userId: authUserId, forbidden: true };
+};
+
 const getNotifications = async (req, res) => {
-    const userId = req.user.id;
+    const { userId, forbidden } = resolveRequestedUserId(req);
+    if (forbidden) {
+        return res.status(403).json({ message: 'You can only view your own notifications' });
+    }
 
     // Fallback logic for Prisma model naming discrepancies
     const notificationModel = prisma.notification || prisma.notifications;

@@ -218,7 +218,7 @@ export default function OfficerDashboard() {
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
-                                        {user?.role === 'HELPDESK' && (
+                                        {(user?.role === 'HELPDESK' || user?.role === 'HELP_DESK') && (
                                             <Button
                                                 variant="outline"
                                                 size="lg"

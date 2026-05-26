@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../lib/api';
+import api, { getApiErrorMessage } from '../lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ export default function Register() {
         name: '',
         phoneNumber: '',
         identificationNumber: '',
+        nationalId: '',
         password: '',
     });
     const [loading, setLoading] = useState(false);
@@ -22,11 +23,16 @@ export default function Register() {
         e.preventDefault();
         setLoading(true);
         setError('');
+        if (!/^\d{16}$/.test(formData.nationalId)) {
+            setError('National ID must be exactly 16 digits.');
+            setLoading(false);
+            return;
+        }
         try {
             await api.post('/auth/register', { ...formData, role: 'CITIZEN' });
             navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed.');
+            setError(getApiErrorMessage(err, 'Registration failed.'));
         } finally {
             setLoading(false);
         }
@@ -81,14 +87,21 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-foreground/80 uppercase tracking-wider">National ID (Optional)</label>
+                            <label className="text-xs font-bold text-foreground/80 uppercase tracking-wider">National ID (Required)</label>
+                            <p className="text-xs text-muted-foreground">Enter exactly 16 numeric digits.</p>
                             <div className="relative">
                                 <CreditCard className="absolute left-3 top-3 w-5 h-5 text-muted-foreground/50" />
                                 <Input
-                                    placeholder="ID Number"
+                                    placeholder="1234567890123456"
                                     className="pl-10 h-12 rounded-xl"
-                                    value={formData.identificationNumber}
-                                    onChange={(e) => setFormData({ ...formData, identificationNumber: e.target.value })}
+                                    value={formData.nationalId}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            nationalId: e.target.value.replace(/\D/g, '').slice(0, 16)
+                                        })
+                                    }
+                                    required
                                 />
                             </div>
                         </div>

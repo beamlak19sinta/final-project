@@ -24,6 +24,7 @@ const getUsers = async (req, res) => {
                 phoneNumber: true,
                 role: true,
                 identificationNumber: true,
+                nationalId: true,
                 createdAt: true
             },
             orderBy: { createdAt: 'desc' }
@@ -115,7 +116,7 @@ const updateUserRole = async (req, res) => {
         const { role } = req.body;
         const currentUserId = req.user.id;
 
-        if (!['CITIZEN', 'OFFICER', 'ADMIN'].includes(role)) {
+        if (!['CITIZEN', 'OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'].includes(role)) {
             return res.status(400).json({ message: 'Invalid role' });
         }
 
@@ -165,7 +166,7 @@ const updateUser = async (req, res) => {
         if (phoneNumber) updateData.phoneNumber = phoneNumber;
 
         if (role) {
-            if (!['CITIZEN', 'OFFICER', 'HELPDESK', 'ADMIN'].includes(role)) {
+            if (!['CITIZEN', 'OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'].includes(role)) {
                 return res.status(400).json({ message: 'Invalid role' });
             }
             // Prevent self-demotion from Admin

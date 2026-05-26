@@ -1,174 +1,227 @@
+// src/controllers/serviceController.js
 const prisma = require('../utils/prisma');
 
+// Log helper (optional)
 const logAction = async (userId, action, details) => {
-    try {
-        await prisma.systemLog.create({
-            data: { action, details, userId }
-        });
-    } catch (err) {
-        console.error('Failed to create system log', err);
-    }
+  try {
+    await prisma.systemLog.create({ data: { userId, action, details } });
+  } catch (err) {
+    console.error('Failed to log action', err);
+  }
 };
 
-const getSectors = async (req, res) => {
-    try {
-        const sectors = await prisma.serviceSector.findMany({
-            include: { services: true }
-        });
-        res.json(sectors);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch sectors', error: error.message });
-    }
+// ----- Services -----
+const getAllServices = async (req, res) => {
+  try {
+    const services = await prisma.service.findMany({
+      include: {
+        sector: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json(services);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch services' });
+  }
 };
 
-const createSector = async (req, res) => {
-    const { name, description, icon } = req.body;
-    try {
-        const sector = await prisma.serviceSector.create({
-            data: { name, description, icon }
-        });
-        await logAction(req.user.id, 'CREATE_SECTOR', `Created sector: ${name}`);
-        res.status(201).json(sector);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to create sector', error: error.message });
-    }
+const getCitizenServices = async (req, res) => {
+  try {
+    const sectors = await prisma.serviceSector.findMany({
+      include: {
+        services: {
+          where: { mode: { in: ['APPOINTMENT', 'QUEUE'] } },
+          orderBy: { name: 'asc' },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json(sectors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch citizen services' });
+  }
 };
 
-const createService = async (req, res) => {
-    const { name, description, mode, availability, icon, sectorId } = req.body;
-    try {
-        const service = await prisma.service.create({
-            data: { name, description, mode, availability, icon, sectorId }
-        });
-        await logAction(req.user.id, 'CREATE_SERVICE', `Created service: ${name}`);
-        res.status(201).json(service);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to create service', error: error.message });
-    }
+const getSupportServices = async (req, res) => {
+  try {
+    const sectors = await prisma.serviceSector.findMany({
+      include: {
+        services: {
+          where: { mode: 'ONLINE' },
+          orderBy: { name: 'asc' },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json(sectors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch support services' });
+  }
 };
 
-const updateSector = async (req, res) => {
-    const { id } = req.params;
-    const { name, description, icon } = req.body;
-    try {
-        const sector = await prisma.serviceSector.update({
-            where: { id },
-            data: { name, description, icon }
-        });
-        await logAction(req.user.id, 'UPDATE_SECTOR', `Updated sector: ${name}`);
-        res.json(sector);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to update sector', error: error.message });
-    }
-};
+const getUnifiedServiceCatalog = async (_req, res) => {
+  try {
+    const sectors = await prisma.serviceSector.findMany({
+      include: {
+        services: {
+          orderBy: { name: 'asc' },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
 
-const deleteSector = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const sector = await prisma.serviceSector.findUnique({
-            where: { id },
-            include: { services: true }
-        });
+    const allServices = sectors.flatMap((sector) =>
+      (sector.services || []).map((service) => ({
+        ...service,
+        sectorName: sector.name,
+      })),
+    );
 
-        if (!sector) {
-            return res.status(404).json({ message: 'Sector not found' });
-        }
+    const modules = {
+      appointmentBooking: allServices.filter((item) => item.mode === 'APPOINTMENT'),
+      queueManagement: allServices.filter((item) => item.mode === 'QUEUE'),
+      onlineServices: allServices.filter((item) => item.mode === 'ONLINE'),
+      serviceCategories: sectors.map((item) => ({ id: item.id, name: item.name, description: item.description })),
+      departments: sectors.map((item) => ({ id: item.id, name: item.name })),
+    };
 
-        const serviceIds = sector.services.map(s => s.id);
-
-        await prisma.$transaction(async (tx) => {
-            if (serviceIds.length > 0) {
-                // Delete related records for all services in this sector
-                await tx.queue.deleteMany({ where: { serviceId: { in: serviceIds } } });
-                await tx.appointment.deleteMany({ where: { serviceId: { in: serviceIds } } });
-                await tx.serviceRequest.deleteMany({ where: { serviceId: { in: serviceIds } } });
-
-                // Delete all services in this sector
-                await tx.service.deleteMany({ where: { sectorId: id } });
-            }
-
-            // Finally delete the sector
-            await tx.serviceSector.delete({ where: { id } });
-        });
-
-        await logAction(req.user.id, 'DELETE_SECTOR', `Deleted sector: ${sector.name}`);
-        res.json({ message: 'Sector and related services deleted' });
-    } catch (error) {
-        console.error('Failed to delete sector:', error);
-        res.status(500).json({ message: 'Failed to delete sector', error: error.message });
-    }
-};
-
-const updateService = async (req, res) => {
-    const { id } = req.params;
-    const { name, description, mode, availability, icon } = req.body;
-    try {
-        const service = await prisma.service.update({
-            where: { id },
-            data: { name, description, mode, availability, icon }
-        });
-        await logAction(req.user.id, 'UPDATE_SERVICE', `Updated service: ${name}`);
-        res.json(service);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to update service', error: error.message });
-    }
-};
-
-const deleteService = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const service = await prisma.service.findUnique({ where: { id } });
-
-        if (!service) {
-            return res.status(404).json({ message: 'Service not found' });
-        }
-
-        await prisma.$transaction(async (tx) => {
-            // Delete related records for this service
-            await tx.queue.deleteMany({ where: { serviceId: id } });
-            await tx.appointment.deleteMany({ where: { serviceId: id } });
-            await tx.serviceRequest.deleteMany({ where: { serviceId: id } });
-
-            // Delete the service
-            await tx.service.delete({ where: { id } });
-        });
-
-        await logAction(req.user.id, 'DELETE_SERVICE', `Deleted service: ${service.name}`);
-        res.json({ message: 'Service deleted' });
-    } catch (error) {
-        console.error('Failed to delete service:', error);
-        res.status(500).json({ message: 'Failed to delete service', error: error.message });
-    }
+    res.json({ sectors, modules });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch unified service catalog' });
+  }
 };
 
 const getServiceById = async (req, res) => {
-    const { serviceId } = req.params;
-
-    try {
-        const service = await prisma.service.findUnique({
-            where: { id: serviceId },
-            include: { sector: true }
-        });
-
-        if (!service) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: service
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch service',
-            error: error.message
-        });
-    }
+  const { serviceId } = req.params;
+  try {
+    const service = await prisma.service.findUnique({ where: { id: serviceId } });
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+    res.json(service);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch service' });
+  }
 };
 
-module.exports = { getSectors, createSector, createService, updateSector, deleteSector, updateService, deleteService, getServiceById };
+const createService = async (req, res) => {
+  const { name, description, sectorId, mode, availability, icon } = req.body;
+  try {
+    if (!name || !sectorId || !mode) {
+      return res.status(400).json({ error: 'name, sectorId and mode are required' });
+    }
 
+    const service = await prisma.service.create({
+      data: { name, description, sectorId, mode, availability, icon },
+    });
+    res.status(201).json(service);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create service' });
+  }
+};
+
+const updateService = async (req, res) => {
+  const { id } = req.params;
+  const { name, description, mode, sectorId, availability, icon } = req.body;
+  try {
+    const service = await prisma.service.update({
+      where: { id },
+      data: { name, description, mode, sectorId, availability, icon },
+    });
+    res.json(service);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update service' });
+  }
+};
+
+const deleteService = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.service.delete({ where: { id } });
+    res.json({ message: 'Service deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete service' });
+  }
+};
+
+// ----- Sectors -----
+const getAllSectors = async (req, res) => {
+  try {
+    const sectors = await prisma.serviceSector.findMany({
+      include: {
+        services: {
+          orderBy: { name: 'asc' },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json(sectors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch sectors' });
+  }
+};
+
+const createSector = async (req, res) => {
+  const { name, description, icon } = req.body;
+  try {
+    if (!name) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    const sector = await prisma.serviceSector.create({
+      data: { name, description, icon },
+    });
+    res.status(201).json(sector);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create sector' });
+  }
+};
+
+const updateSector = async (req, res) => {
+  const { id } = req.params;
+  const { name, description, icon } = req.body;
+  try {
+    const sector = await prisma.serviceSector.update({
+      where: { id },
+      data: { name, description, icon },
+    });
+    res.json(sector);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update sector' });
+  }
+};
+
+const deleteSector = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.serviceSector.delete({ where: { id } });
+    res.json({ message: 'Sector deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete sector' });
+  }
+};
+
+module.exports = {
+  getAllServices,
+  getCitizenServices,
+  getSupportServices,
+  getUnifiedServiceCatalog,
+  getServiceById,
+  createService,
+  updateService,
+  deleteService,
+  getAllSectors,
+  createSector,
+  updateSector,
+  deleteSector,
+};

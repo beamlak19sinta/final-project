@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useToast } from '../../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import {
     Card,
@@ -44,6 +46,8 @@ import {
 export default function QueueManagement() {
     const { user } = useAuth();
     const { lang } = useLanguage();
+    const { showToast } = useToast();
+    const navigate = useNavigate();
     const [queues, setQueues] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedQueue, setSelectedQueue] = useState(null);
@@ -95,26 +99,54 @@ export default function QueueManagement() {
         const nextQueue = queues.find(q => q.status === 'WAITING');
         if (!nextQueue) return;
 
+        console.log('CALL NEXT', nextQueue.id, 'CALLING');
         try {
-            await api.patch(`/queues/status/${nextQueue.id}`, { status: 'CALLING' });
-            fetchQueue();
+            const { data } = await api.patch(`/queues/${nextQueue.id}/status`, { status: 'CALLING' });
+            if (data?.id) {
+                setQueues((prev) => prev.map((q) => (q.id === data.id ? { ...q, ...data } : q)));
+            }
+            showToast(lang === 'en' ? 'Next customer called' : 'ቀጣዩ ተጠራ', 'success');
+            await fetchQueue();
         } catch (err) {
             console.error('Failed to call next', err);
+            showToast(
+                err.response?.data?.message || err.message || 'Failed to call next',
+                'error'
+            );
         }
     };
 
     const handleUpdateStatus = async (queueId, status) => {
+        if (status === 'COMPLETED') {
+            console.log('APPROVE CLICKED', queueId, status);
+        } else if (status === 'REJECTED') {
+            console.log('REJECT CLICKED', queueId, status);
+        } else {
+            console.log('QUEUE STATUS CLICKED', queueId, status);
+        }
+
         try {
             const payload = { status };
             if (remarks && (status === 'COMPLETED' || status === 'REJECTED')) {
                 payload.remarks = remarks;
             }
-            await api.patch(`/queues/status/${queueId}`, payload);
+            const { data } = await api.patch(`/queues/${queueId}/status`, payload);
+            if (data?.id) {
+                setQueues((prev) => prev.map((q) => (q.id === data.id ? { ...q, ...data } : q)));
+            }
             setRemarks('');
             setSelectedQueue(null);
-            fetchQueue();
+            showToast(
+                lang === 'en' ? `Queue updated to ${status}` : `ወረፋ ወደ ${status} ተዘመነ`,
+                'success'
+            );
+            await fetchQueue();
         } catch (err) {
-            console.error('Failed to update status', err);
+            console.error('Failed to update queue status', err);
+            showToast(
+                err.response?.data?.message || err.message || 'Failed to update queue status',
+                'error'
+            );
         }
     };
 
@@ -130,9 +162,14 @@ export default function QueueManagement() {
             setForwardSectorId('');
             setRemarks('');
             setSelectedQueue(null);
-            fetchQueue();
+            showToast(lang === 'en' ? 'Request forwarded' : 'ጥያቄ አስተላልፏል', 'success');
+            await fetchQueue();
         } catch (err) {
             console.error('Failed to forward request', err);
+            showToast(
+                err.response?.data?.message || err.message || 'Failed to forward',
+                'error'
+            );
         }
     };
 

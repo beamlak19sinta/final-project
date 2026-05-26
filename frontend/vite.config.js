@@ -18,4 +18,11 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Dev server: expose on LAN so phones can open the web app while still
+  // calling the backend on the same Wi‑Fi.
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: false,
+  },
 })

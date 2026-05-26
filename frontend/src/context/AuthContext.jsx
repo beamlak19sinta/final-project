@@ -1,26 +1,24 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
+    const [user, setUser] = useState(() => {
         const storedUser = localStorage.getItem('user');
         const token = localStorage.getItem('token');
 
-        if (storedUser && storedUser !== 'undefined' && token) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                console.error('Failed to parse stored user:', e);
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
-            }
+        if (!storedUser || storedUser === 'undefined' || !token) return null;
+
+        try {
+            return JSON.parse(storedUser);
+        } catch (e) {
+            console.error('Failed to parse stored user:', e);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            return null;
         }
-        setLoading(false);
-    }, []);
+    });
+    const [loading] = useState(false);
 
     const login = (userData, token) => {
         setUser(userData);

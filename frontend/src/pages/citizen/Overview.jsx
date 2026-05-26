@@ -2,7 +2,6 @@ import React from 'react';
 import { useCitizenData } from '../../hooks/useCitizenData';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { translations } from '../../lib/translations';
 import {
     Card,
     CardHeader,
@@ -16,9 +15,7 @@ import {
     Ticket,
     MapPin,
     Calendar,
-    ArrowRight,
-    Building2,
-    ClipboardList
+    ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -28,7 +25,6 @@ export default function Overview() {
     const { lang } = useLanguage();
     const { activeQueue, appointments, loading } = useCitizenData();
     const navigate = useNavigate();
-    const t = translations[lang];
 
     const firstName = user?.name?.split(' ')[0] || (lang === 'en' ? 'Citizen' : 'ዜጋ');
 
@@ -51,7 +47,7 @@ export default function Overview() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                     <h2 className="text-4xl font-black tracking-tight mb-2">
-                        {lang === 'en' ? `Welcome back, ${firstName}!` : `እንኳን ደህና መጡ፣ ${firstName}!`}
+                    {lang === 'en' ? `Welcome back, ${firstName}!` : `እንኳን ደህና መጡ፣ ${firstName}!`}
                     </h2>
                     <p className="text-muted-foreground font-semibold flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" /> Bahir Dar City Portal
@@ -139,7 +135,8 @@ export default function Overview() {
                                     View All <ArrowRight className="w-4 h-4" />
                                 </Button>
                             </div>
-                        ) : (
+                        ):
+(
                             <div className="text-center py-6 space-y-3">
                                 <p className="text-sm text-muted-foreground font-semibold italic">No upcoming appointments.</p>
                                 <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={() => navigate('/dashboard/appointments')}>
@@ -156,24 +153,7 @@ export default function Overview() {
                         <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
                         <CardDescription>Navigate directly to key services</CardDescription>
                     </CardHeader>
-                    <CardContent className="p-0 grid grid-cols-2 gap-4">
-                        <Button
-                            variant="secondary"
-                            className="h-24 rounded-2xl flex flex-col gap-2 font-bold justify-center border border-border"
-                            onClick={() => navigate('/dashboard/services')}
-                        >
-                            <Building2 className="w-6 h-6 text-primary" />
-                            <span>All Services</span>
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="h-24 rounded-2xl flex flex-col gap-2 font-bold justify-center border border-border"
-                            onClick={() => navigate('/dashboard/track')}
-                        >
-                            <ClipboardList className="w-6 h-6 text-primary" />
-                            <span>Track Request</span>
-                        </Button>
-                    </CardContent>
+                    {/* Add your quick action buttons here if needed */}
                 </Card>
             </div>
         </div>

@@ -46,6 +46,12 @@ export default function OfficerLayout() {
     const t = translations[lang];
 
     const menuItems = [
+        ...(user?.role === 'HELP_DESK' || user?.role === 'HELPDESK' ? [{
+            id: 'helpdesk',
+            path: '/help-desk',
+            label: lang === 'en' ? 'Help Desk' : 'እገዛ ጠረጴዛ',
+            icon: FileText
+        }] : []),
         {
             id: 'queue',
             path: '/officer/queue',
@@ -165,7 +171,11 @@ export default function OfficerLayout() {
                             <div className="text-right hidden sm:block">
                                 <div className="text-sm font-black text-foreground">{user?.name}</div>
                                 <div className="text-[10px] font-bold text-primary uppercase">
-                                    {user?.role === 'OFFICER' ? (lang === 'en' ? 'Officer' : 'ሰራተኛ') : user?.role}
+                                    {user?.role === 'OFFICER'
+                                        ? (lang === 'en' ? 'Officer' : 'ሰራተኛ')
+                                        : (user?.role === 'HELP_DESK' || user?.role === 'HELPDESK')
+                                            ? (lang === 'en' ? 'Help Desk' : 'እገዛ ጠረጴዛ')
+                                            : user?.role}
                                 </div>
                             </div>
                             <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-black">

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import api from '../../lib/api';
 import {
@@ -42,7 +41,6 @@ import {
 } from 'lucide-react';
 
 export default function ServiceRequests() {
-    const { user } = useAuth();
     const { lang } = useLanguage();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(false);

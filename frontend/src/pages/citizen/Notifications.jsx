@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import api from '../../lib/api';
+import api, { getApiErrorMessage } from '../../lib/api';
 import {
     Card,
     CardHeader,
@@ -24,14 +24,16 @@ export default function Notifications() {
     const { lang } = useLanguage();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [markingRead, setMarkingRead] = useState(false);
 
     const fetchNotifications = async () => {
+        setError('');
         try {
             const { data } = await api.get('/notifications');
-            // Backend returns { success: true, data: [...], unreadCount: X }
             setNotifications(data.data || []);
         } catch (err) {
-            console.error('Failed to fetch notifications', err);
+            setError(getApiErrorMessage(err, 'Unable to fetch notifications'));
         } finally {
             setLoading(false);
         }
@@ -42,29 +44,35 @@ export default function Notifications() {
     }, []);
 
     const markAsRead = async (id) => {
+        setMarkingRead(true);
         try {
             await api.patch(`/notifications/${id}/read`);
-            setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+            setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
         } catch (err) {
-            console.error('Failed to mark as read', err);
+            setError(getApiErrorMessage(err, 'Unable to mark notification as read'));
+        } finally {
+            setMarkingRead(false);
         }
     };
 
     const handleMarkAllRead = async () => {
+        setMarkingRead(true);
         try {
             await api.patch('/notifications/read-all');
-            setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         } catch (err) {
-            console.error('Failed to mark all as read', err);
+            setError(getApiErrorMessage(err, 'Unable to mark all notifications as read'));
+        } finally {
+            setMarkingRead(false);
         }
     };
 
     const deleteNotification = async (id) => {
         try {
             await api.delete(`/notifications/${id}`);
-            setNotifications(notifications.filter(n => n.id !== id));
+            setNotifications((prev) => prev.filter((n) => n.id !== id));
         } catch (err) {
-            console.error('Failed to delete notification', err);
+            setError(getApiErrorMessage(err, 'Unable to delete notification'));
         }
     };
 
@@ -81,37 +89,49 @@ export default function Notifications() {
 
     return (
         <div className="space-y-10">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-black tracking-tight">{lang === 'en' ? 'Notifications' : 'ማሳወቂያዎች'}</h2>
                     <p className="text-muted-foreground font-semibold">Stay updated with your service status and system alerts.</p>
                 </div>
-                {notifications.length > 0 && notifications.some(n => !n.isRead) && (
+                <div className="flex flex-wrap gap-2">
                     <Button
                         variant="outline"
                         size="sm"
                         className="rounded-xl font-bold border-border"
-                        onClick={handleMarkAllRead}
+                        onClick={fetchNotifications}
+                        disabled={loading || markingRead}
                     >
-                        Mark all as read
+                        Refresh
                     </Button>
-                )}
+                    {notifications.length > 0 && notifications.some((n) => !n.isRead) && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-xl font-bold"
+                            onClick={handleMarkAllRead}
+                            disabled={loading || markingRead}
+                        >
+                            Mark all as read
+                        </Button>
+                    )}
+                </div>
             </div>
-
+            {error ? <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-4 text-destructive font-semibold">{error}</div> : null}
             {notifications.length > 0 ? (
                 <div className="grid gap-4">
-                    {notifications.map((n, i) => (
-                        <Card key={i} className={`rounded-3xl border-border transition-all overflow-hidden ${n.isRead ? 'bg-card/50 opacity-80' : 'bg-card border-l-4 border-l-primary'}`}>
-                            <div className="p-6 flex items-start gap-6">
+                    {notifications.map((n) => (
+                        <Card key={n.id} className={`rounded-3xl border-border transition-all overflow-hidden ${n.isRead ? 'bg-card/50 opacity-80' : 'bg-card border-l-4 border-l-primary'}`}>
+                            <div className="p-6 flex flex-col gap-4 sm:flex-row sm:items-start">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${n.isRead ? 'bg-muted' : 'bg-primary/10'}`}>
                                     {getIcon(n.type)}
                                 </div>
-                                <div className="flex-1 space-y-1">
-                                    <div className="flex justify-between items-start">
+                                <div className="flex-1 space-y-3">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                         <h4 className={`font-black text-lg ${n.isRead ? 'text-muted-foreground' : 'text-foreground'}`}>
                                             {n.title}
                                         </h4>
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                        <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
                                             {new Date(n.createdAt).toLocaleDateString()}
                                         </span>
@@ -119,7 +139,7 @@ export default function Notifications() {
                                     <p className={`font-medium leading-relaxed ${n.isRead ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>
                                         {n.message}
                                     </p>
-                                    <div className="flex items-center gap-4 pt-2">
+                                    <div className="flex flex-wrap gap-4">
                                         {!n.isRead && (
                                             <Button variant="link" className="p-0 h-auto text-primary font-black text-xs" onClick={() => markAsRead(n.id)}>
                                                 Mark as read

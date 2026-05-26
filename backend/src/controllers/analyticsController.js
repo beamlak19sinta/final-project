@@ -118,8 +118,162 @@ const getPeakHours = async (req, res) => {
     }
 };
 
+const getSystemOverview = async (req, res) => {
+    try {
+        const [
+            totalAppointments,
+            pendingAppointments,
+            scheduledAppointments,
+            totalRequests,
+            pendingRequests,
+            processingRequests,
+            totalQueues,
+            activeQueues
+        ] = await Promise.all([
+            prisma.appointment.count(),
+            prisma.appointment.count({ where: { status: 'PENDING' } }),
+            prisma.appointment.count({ where: { status: 'SCHEDULED' } }),
+            prisma.serviceRequest.count(),
+            prisma.serviceRequest.count({ where: { status: 'PENDING' } }),
+            prisma.serviceRequest.count({ where: { status: 'PROCESSING' } }),
+            prisma.queue.count(),
+            prisma.queue.count({ where: { status: { in: ['WAITING', 'CALLING', 'PROCESSING'] } } })
+        ]);
+
+        res.json({
+            appointments: {
+                total: totalAppointments,
+                pending: pendingAppointments,
+                scheduled: scheduledAppointments
+            },
+            requests: {
+                total: totalRequests,
+                pending: pendingRequests,
+                processing: processingRequests
+            },
+            queues: {
+                total: totalQueues,
+                active: activeQueues
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch system overview', error: error.message });
+    }
+};
+
+const getAdminDashboardAnalytics = async (_req, res) => {
+    try {
+        const feedback = await prisma.feedback.findMany({
+            select: { rating: true, createdAt: true }
+        });
+
+        const totalFeedback = feedback.length;
+        const ratingsOnly = feedback.filter((item) => Number.isInteger(item.rating)).map((item) => item.rating);
+        const averageRating = ratingsOnly.length
+            ? Number((ratingsOnly.reduce((sum, rating) => sum + rating, 0) / ratingsOnly.length).toFixed(2))
+            : 0;
+
+        const ratingDistribution = [1, 2, 3, 4, 5].map((star) => ({
+            rating: `${star} Star`,
+            value: ratingsOnly.filter((value) => value === star).length,
+        }));
+
+        const sentiment = {
+            positive: ratingsOnly.filter((value) => value >= 4).length,
+            neutral: ratingsOnly.filter((value) => value === 3).length,
+            negative: ratingsOnly.filter((value) => value <= 2).length,
+        };
+
+        const feedbackByDateMap = feedback.reduce((acc, item) => {
+            const key = item.createdAt.toISOString().slice(0, 10);
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        const feedbackTimeline = Object.keys(feedbackByDateMap)
+            .sort()
+            .map((date) => ({ date, count: feedbackByDateMap[date] }));
+
+        const highestRatedMap = feedback.reduce((acc, item) => {
+            const key = item.createdAt.toISOString().slice(0, 10);
+            if (Number.isInteger(item.rating) && item.rating >= 4) {
+                acc[key] = (acc[key] || 0) + 1;
+            }
+            return acc;
+        }, {});
+
+        const highestRatedTrend = Object.keys(highestRatedMap)
+            .sort()
+            .map((date) => ({ date, count: highestRatedMap[date] }));
+
+        const [topAppointmentServices, queueStats, onlineRequestsCount] = await Promise.all([
+            prisma.appointment.groupBy({
+                by: ['serviceId'],
+                _count: { serviceId: true },
+                orderBy: { _count: { serviceId: 'desc' } },
+                take: 5
+            }),
+            prisma.queue.groupBy({
+                by: ['status'],
+                _count: { status: true },
+            }),
+            prisma.serviceRequest.count({
+                where: { service: { mode: 'ONLINE' } }
+            })
+        ]);
+
+        const appointmentServiceIds = topAppointmentServices.map((item) => item.serviceId);
+        const appointmentServices = appointmentServiceIds.length
+            ? await prisma.service.findMany({
+                where: { id: { in: appointmentServiceIds } },
+                select: { id: true, name: true }
+            })
+            : [];
+
+        const serviceNameMap = appointmentServices.reduce((acc, service) => {
+            acc[service.id] = service.name;
+            return acc;
+        }, {});
+
+        const appointmentUsage = topAppointmentServices.map((item) => ({
+            name: serviceNameMap[item.serviceId] || 'Unknown Service',
+            count: item._count.serviceId
+        }));
+
+        const queueUsage = queueStats.map((item) => ({
+            status: item.status,
+            count: item._count.status
+        }));
+
+        res.json({
+            feedback: {
+                totalFeedback,
+                averageRating,
+                highestRatedFeedbackCount: ratingsOnly.filter((value) => value >= 4).length,
+                ratingDistribution,
+                sentiment: [
+                    { name: 'Positive', value: sentiment.positive },
+                    { name: 'Neutral', value: sentiment.neutral },
+                    { name: 'Negative', value: sentiment.negative },
+                ],
+                timeline: feedbackTimeline,
+                highestRatedTrend,
+            },
+            serviceUsage: {
+                appointmentUsage,
+                queueUsage,
+                onlineRequestsCount,
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch admin dashboard analytics', error: error.message });
+    }
+};
+
 module.exports = {
     getQueueAnalytics,
     getServicePerformance,
-    getPeakHours
+    getPeakHours,
+    getSystemOverview,
+    getAdminDashboardAnalytics
 };

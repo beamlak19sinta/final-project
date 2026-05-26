@@ -56,6 +56,7 @@ export default function UserManagement() {
     const [userForm, setUserForm] = useState({
         name: '',
         phoneNumber: '',
+        nationalId: '',
         password: '',
         role: 'CITIZEN'
     });
@@ -100,7 +101,7 @@ export default function UserManagement() {
             }
             setShowUserModal(false);
             setEditingUser(null);
-            setUserForm({ name: '', phoneNumber: '', password: '', role: 'CITIZEN' });
+            setUserForm({ name: '', phoneNumber: '', nationalId: '', password: '', role: 'CITIZEN' });
             fetchUsers();
         } catch (err) {
             setFormError(err.response?.data?.message || err.message || 'Failed to save user');
@@ -130,6 +131,7 @@ export default function UserManagement() {
             name: user.name,
             phoneNumber: user.phoneNumber,
             role: user.role,
+            nationalId: user.nationalId || '',
             password: '' // Don't fill password
         });
         setShowUserModal(true);
@@ -138,7 +140,7 @@ export default function UserManagement() {
     const openAddModal = () => {
         setEditingUser(null);
         setFormError(null);
-        setUserForm({ name: '', phoneNumber: '', password: '', role: 'CITIZEN' });
+        setUserForm({ name: '', phoneNumber: '', nationalId: '', password: '', role: 'CITIZEN' });
         setShowUserModal(true);
     };
 
@@ -147,6 +149,16 @@ export default function UserManagement() {
         (u.phoneNumber || '').includes(searchTerm) ||
         (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (loading) {
+        return (
+            <div className="space-y-6 animate-pulse">
+                <div className="h-10 bg-muted rounded-2xl w-1/2" />
+                <div className="h-16 bg-muted rounded-[24px]" />
+                <div className="h-[520px] bg-muted rounded-[32px]" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -293,6 +305,16 @@ export default function UserManagement() {
                                     placeholder="+251..."
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase text-muted-foreground tracking-widest pl-1">National ID (16 digits)</label>
+                                <Input
+                                    className="rounded-xl h-12 font-bold bg-muted/20 border-border focus:bg-background transition-colors"
+                                    value={userForm.nationalId}
+                                    onChange={e => setUserForm({ ...userForm, nationalId: e.target.value.replace(/\D/g, '').slice(0, 16) })}
+                                    required
+                                    placeholder="1234567890123456"
+                                />
+                            </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-black uppercase text-muted-foreground tracking-widest pl-1">
@@ -321,6 +343,7 @@ export default function UserManagement() {
                                         <SelectItem value="CITIZEN" className="font-bold">CITIZEN</SelectItem>
                                         <SelectItem value="OFFICER" className="font-bold">OFFICER</SelectItem>
                                         <SelectItem value="HELPDESK" className="font-bold">HELPDESK</SelectItem>
+                                        <SelectItem value="HELP_DESK" className="font-bold">HELP_DESK</SelectItem>
                                         <SelectItem value="ADMIN" className="font-bold text-destructive">ADMIN</SelectItem>
                                     </SelectContent>
                                 </Select>

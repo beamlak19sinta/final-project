@@ -7,12 +7,15 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 router.post('/take', authenticateToken, queueController.takeTicket);
 router.get('/my-status', authenticateToken, queueController.getMyQueueStatus);
 router.get('/my-history', authenticateToken, queueController.getMyQueueHistory);
-router.get('/history/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'ADMIN'), queueController.getQueueHistory);
-router.get('/list/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'ADMIN'), queueController.getQueueList);
-router.patch('/status/:queueId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK'), queueController.updateQueueStatus);
+router.get('/history/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.getQueueHistory);
+router.get('/list/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.getQueueList);
+// Preferred: PATCH /api/queues/:queueId/status  body: { status, remarks? }
+router.patch('/:queueId/status', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'), queueController.updateQueueStatus);
+// Legacy: PATCH /api/queues/status/:queueId
+router.patch('/status/:queueId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'), queueController.updateQueueStatus);
 router.post('/forward/:queueId', authenticateToken, authorizeRoles('OFFICER'), queueController.forwardTicket);
 router.delete('/:queueId', authenticateToken, queueController.cancelTicket);
-router.post('/register-walkin', authenticateToken, authorizeRoles('HELPDESK', 'ADMIN'), queueController.registerWalkIn);
+router.post('/register-walkin', authenticateToken, authorizeRoles('HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.registerWalkIn);
 
 // Mobile format aliases (for backward compatibility)
 router.post('/', authenticateToken, queueController.takeTicket); // Alias for /take

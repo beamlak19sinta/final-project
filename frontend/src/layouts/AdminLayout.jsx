@@ -70,6 +70,12 @@ export default function AdminLayout() {
             icon: FileText
         },
         {
+            id: 'questions',
+            path: '/admin/questions',
+            label: lang === 'en' ? 'Questions' : 'ጥያቄዎች',
+            icon: Users
+        },
+        {
             id: 'settings',
             path: '/admin/settings',
             label: lang === 'en' ? 'System Settings' : 'ቅንብሮች',
