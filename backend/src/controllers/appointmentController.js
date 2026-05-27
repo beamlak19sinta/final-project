@@ -18,10 +18,11 @@ const getDateRange = (dateStr) => {
 // ========================
 const bookAppointment = async (req, res) => {
     console.log('[bookAppointment] req.body:', req.body);
-    const { serviceId, date, appointmentDate, timeSlot } = req.body;
+    const { date, appointmentDate, timeSlot } = req.body;
+    const serviceIdRaw = req.body.serviceId || req.body.service_id;
     const bookingDate = date || appointmentDate;
     const userId = req.user.id;
-    console.log('[bookAppointment] userId from token:', userId, '| serviceId:', serviceId, '| date:', bookingDate, '| timeSlot:', timeSlot);
+    console.log('[bookAppointment] userId from token:', userId, '| serviceId:', serviceIdRaw, '| date:', bookingDate, '| timeSlot:', timeSlot);
 
     try {
         // ✅ Validate input
@@ -29,9 +30,10 @@ const bookAppointment = async (req, res) => {
             return res.status(400).json({ message: 'Date is required' });
         }
 
-        if (!serviceId) {
+        if (!serviceIdRaw || typeof serviceIdRaw !== 'string' || !serviceIdRaw.trim()) {
             return res.status(400).json({ message: 'Service ID is required' });
         }
+        const serviceId = serviceIdRaw.trim();
 
         if (!timeSlot) {
             return res.status(400).json({ message: 'Time slot is required' });
@@ -56,7 +58,7 @@ const bookAppointment = async (req, res) => {
 
         // ✅ Check service
         const service = await prisma.service.findUnique({
-            where: { id: String(serviceId) }
+            where: { id: serviceId }
         });
 
         if (!service) {
@@ -71,7 +73,7 @@ const bookAppointment = async (req, res) => {
         const appointment = await prisma.appointment.create({
             data: {
                 userId,
-                serviceId: String(serviceId), // 🔥 FIXED
+                serviceId,
                 date: new Date(bookingDate),
                 timeSlot,
                 status: 'PENDING'
@@ -151,7 +153,7 @@ const getSectorAppointments = async (req, res) => {
         const appointments = await prisma.appointment.findMany({
             where: {
                 service: {
-                    sectorId: String(sectorId) // 🔥 FIXED
+                    sectorId: sectorId.trim()
                 }
             },
             include: {
@@ -218,7 +220,7 @@ const getAvailableSlots = async (req, res) => {
 
         const bookedAppointments = await prisma.appointment.findMany({
             where: {
-                serviceId: String(serviceId), // 🔥 FIXED
+                serviceId,
                 date: { gte: start, lte: end },
                 status: { in: ['PENDING', 'SCHEDULED'] }
             },

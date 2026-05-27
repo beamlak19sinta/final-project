@@ -3,18 +3,19 @@ const prisma = require('../utils/prisma');
 const takeTicket = async (req, res) => {
     console.log('[takeTicket] req.body:', req.body);
     console.log('[takeTicket] userId from token:', req.user?.id);
-    const { serviceId } = req.body;
+    const serviceIdRaw = req.body.serviceId || req.body.service_id;
     const userId = req.user.id;
 
     try {
         // ✅ Validate serviceId is present
-        if (!serviceId || typeof serviceId !== 'string' || !serviceId.trim()) {
+        if (!serviceIdRaw || typeof serviceIdRaw !== 'string' || !serviceIdRaw.trim()) {
             return res.status(400).json({ message: 'serviceId is required' });
         }
+        const serviceId = serviceIdRaw.trim();
 
         // ✅ Confirm service exists in DB before touching Queue
         const service = await prisma.service.findUnique({
-            where: { id: serviceId.trim() }
+            where: { id: serviceId }
         });
         if (!service) {
             console.warn('[takeTicket] Service not found for id:', serviceId);
@@ -226,7 +227,8 @@ const forwardTicket = async (req, res) => {
 
 const registerWalkIn = async (req, res) => {
     console.log('[registerWalkIn] req.body:', req.body);
-    const { name, phoneNumber, serviceId } = req.body;
+    const { name, phoneNumber } = req.body;
+    const serviceIdRaw = req.body.serviceId || req.body.service_id;
     const officerId = req.user.id;
 
     try {
@@ -234,10 +236,11 @@ const registerWalkIn = async (req, res) => {
         startOfDay.setHours(0, 0, 0, 0);
 
         // ✅ Validate service before doing anything
-        if (!serviceId || typeof serviceId !== 'string') {
+        if (!serviceIdRaw || typeof serviceIdRaw !== 'string') {
             return res.status(400).json({ message: 'serviceId is required' });
         }
-        const service = await prisma.service.findUnique({ where: { id: serviceId.trim() } });
+        const serviceId = serviceIdRaw.trim();
+        const service = await prisma.service.findUnique({ where: { id: serviceId } });
         if (!service) {
             return res.status(404).json({ message: `Service not found for id: ${serviceId}` });
         }

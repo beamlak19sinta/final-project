@@ -2,104 +2,9 @@ const prisma = require('../src/utils/prisma');
 const bcrypt = require('bcryptjs');
 
 async function main() {
-    console.log("🔥 SEED STARTED");
+    console.log("🔥 PRODUCTION SEED STARTED");
 
-    const sectorData = [
-        {
-            name: 'Citizen Service Center',
-            description: 'In-office services for appointments and queue operations.',
-            icon: 'Building2',
-            services: [
-                { name: 'Birth Certificate Appointment', description: 'Schedule birth certificate processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Marriage Certificate Appointment', description: 'Schedule marriage certificate processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'ID Card Renewal Appointment', description: 'Renew national ID card.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Digital ID Renewal Appointment', description: 'Renew digital identity.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Passport Application Appointment', description: 'Passport application service.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Revenue Services Appointment', description: 'Tax and revenue appointment.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Land Title Transfer Appointment', description: 'Land ownership transfer.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-
-                { name: 'General Service Queue', description: 'General queue service.', mode: 'QUEUE', availability: 'Mon-Fri' },
-                { name: 'ID Service Queue', description: 'ID-related queue.', mode: 'QUEUE', availability: 'Mon-Fri' },
-                { name: 'Revenue Office Queue', description: 'Revenue queue service.', mode: 'QUEUE', availability: 'Mon-Fri' },
-                { name: 'Land Service Queue', description: 'Land service queue.', mode: 'QUEUE', availability: 'Mon-Fri' },
-                { name: 'Express Queue Service', description: 'Fast-track queue service.', mode: 'QUEUE', availability: 'Mon-Fri' }
-            ]
-        },
-        {
-            name: 'Help Desk Online Services',
-            description: 'Online services portal.',
-            icon: 'Globe',
-            services: [
-                { name: 'Title Transfer Online Service', description: 'Online land title transfer.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Birth Certificate Online Request', description: 'Online birth certificate request.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Marriage Certificate Online Request', description: 'Online marriage request.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Land Management Service', description: 'Manage land records online.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Document Verification Service', description: 'Verify documents online.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Complaint Submission Service', description: 'Submit complaints online.', mode: 'ONLINE', availability: '24/7' }
-            ]
-        },
-        {
-            name: 'Utility & Infrastructure Services',
-            description: 'Utility connections and infrastructure services.',
-            icon: 'Zap',
-            services: [
-                { name: 'Electricity Connection Request', description: 'New electricity connection.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Water Connection Request', description: 'New water connection.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Construction Permit Application', description: 'Building permit approval.', mode: 'APPOINTMENT', availability: 'Mon-Fri' }
-            ]
-        },
-        {
-            name: 'Business & Revenue Services',
-            description: 'Business registration and tax services.',
-            icon: 'Briefcase',
-            services: [
-                { name: 'Business License Registration', description: 'Register new business.', mode: 'ONLINE', availability: '24/7' },
-                { name: 'Tax Clearance Certificate', description: 'Tax clearance processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
-                { name: 'Property Valuation Service', description: 'Land/property valuation.', mode: 'APPOINTMENT', availability: 'Mon-Fri' }
-            ]
-        }
-    ];
-
-    for (const s of sectorData) {
-        const sector = await prisma.serviceSector.upsert({
-            where: { name: s.name },
-            update: {},
-            create: {
-                name: s.name,
-                description: s.description,
-                icon: s.icon
-            }
-        });
-
-        for (const svc of s.services) {
-            // Find existing service by name and sectorId to avoid unique key lookup issues
-            const existingService = await prisma.service.findFirst({
-                where: { name: svc.name, sectorId: sector.id }
-            });
-
-            if (existingService) {
-                await prisma.service.update({
-                    where: { id: existingService.id },
-                    data: {
-                        description: svc.description,
-                        mode: svc.mode,
-                        availability: svc.availability
-                    }
-                });
-            } else {
-                await prisma.service.create({
-                    data: {
-                        name: svc.name,
-                        description: svc.description,
-                        mode: svc.mode,
-                        availability: svc.availability,
-                        sectorId: sector.id
-                    }
-                });
-            }
-        }
-    }
-
+    // 1. Clean out existing transactional data first to prevent foreign key violations
     console.log("🧹 Clearing existing transaction data & users to avoid conflicts...");
     await prisma.systemLog.deleteMany({});
     await prisma.notification.deleteMany({});
@@ -108,8 +13,104 @@ async function main() {
     await prisma.serviceRequest.deleteMany({});
     await prisma.passwordResetToken.deleteMany({});
     await prisma.helpDeskQuestion.deleteMany({});
+    await prisma.feedback.deleteMany({});
     await prisma.user.deleteMany({});
+    await prisma.service.deleteMany({});
+    await prisma.serviceSector.deleteMany({});
 
+    // 2. Define the exact 6 sectors and their corresponding 19 services requested
+    const sectorData = [
+        {
+            name: 'Citizen Services',
+            description: 'Core citizen document registration and identity services.',
+            icon: 'UserCheck',
+            services: [
+                { name: 'National ID Registration', description: 'Register for a new digital national identity card.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'National ID Renewal', description: 'Renew an expired national digital identity card.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Lost ID Replacement', description: 'Request replacement for a lost or damaged identity card.', mode: 'QUEUE', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Birth Certificate', description: 'Apply for and verify birth certificates online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Death Certificate', description: 'Apply for and verify death certificates online.', mode: 'ONLINE', availability: '24/7' }
+            ]
+        },
+        {
+            name: 'Transport Services',
+            description: 'Driving license and vehicle ownership registry.',
+            icon: 'Car',
+            services: [
+                { name: 'Driving License', description: 'Queue for renewal or replacement of driver license.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Vehicle Registration', description: 'Queue for registering vehicle purchase and transfer.', mode: 'QUEUE', availability: 'Mon-Fri 08:30-17:00' }
+            ]
+        },
+        {
+            name: 'Land Services',
+            description: 'Zoning, building permits, property valuation, and transfers.',
+            icon: 'Map',
+            services: [
+                { name: 'Land Title Transfer', description: 'Submit documents for official land ownership transfer.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Construction Permit', description: 'Apply for building permits and urban plan review online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Property Valuation', description: 'Property valuation and land assessment session.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' }
+            ]
+        },
+        {
+            name: 'Revenue Services',
+            description: 'Taxes, commercial licensing, and consultations.',
+            icon: 'Coins',
+            services: [
+                { name: 'Tax Clearance', description: 'Collect official annual tax clearance statement.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Business License', description: 'Apply for new business registrations and commercial licenses online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Revenue Service Appointment', description: 'Schedule formal consulting with tax and revenue officers.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' }
+            ]
+        },
+        {
+            name: 'Utility Services',
+            description: 'Municipal electricity and water infrastructure requests.',
+            icon: 'Zap',
+            services: [
+                { name: 'Electricity Connection', description: 'Request new power installation connection online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Water Connection', description: 'Request new water infrastructure installation connection online.', mode: 'ONLINE', availability: '24/7' }
+            ]
+        },
+        {
+            name: 'Online Help Desk',
+            description: 'Inquiries, passport services, and support queues.',
+            icon: 'HelpCircle',
+            services: [
+                { name: 'Queue Services', description: 'Join the virtual queue for general queries and help desk assistance.', mode: 'QUEUE', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Appointment Services', description: 'Book a face-to-face consultation with help desk officers.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Passport Application', description: 'Verify original documents and process new passport applications.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
+                { name: 'Passport Renewal', description: 'Verify and renew passport documents.', mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' }
+            ]
+        }
+    ];
+
+    // Seed sectors and services
+    console.log("🌱 Seeding 6 service sectors and 19 government services...");
+    for (const s of sectorData) {
+        const sector = await prisma.serviceSector.create({
+            data: {
+                name: s.name,
+                description: s.description,
+                icon: s.icon
+            }
+        });
+        console.log(`📂 Created Sector: ${sector.name}`);
+
+        for (const svc of s.services) {
+            const service = await prisma.service.create({
+                data: {
+                    name: svc.name,
+                    description: svc.description,
+                    mode: svc.mode,
+                    availability: svc.availability,
+                    sectorId: sector.id
+                }
+            });
+            console.log(`  └─ 🛠️ Created Service: ${service.name} (${service.mode})`);
+        }
+    }
+
+    // 3. Seed users with safe, pre-hashed passwords
+    console.log("👤 Seeding system users (Admin, Officer, Helpdesk, Citizen)...");
     const adminPassword = await bcrypt.hash('admin123', 10);
     const officerPassword = await bcrypt.hash('officer123', 10);
     const citizenPassword = await bcrypt.hash('password123', 10);
@@ -167,26 +168,19 @@ async function main() {
     ];
 
     for (const user of users) {
-        await prisma.user.upsert({
-            where: { phoneNumber: user.phoneNumber },
-            update: {
-                name: user.name,
-                password: user.password,
-                role: user.role,
-                identificationNumber: user.identificationNumber,
-                nationalId: user.nationalId
-            },
-            create: user
+        await prisma.user.create({
+            data: user
         });
-        console.log(`👤 User seeded/updated: ${user.name} (${user.role}) - Phone: ${user.phoneNumber}`);
+        console.log(`👤 Seeded User: ${user.name} (${user.role}) - Phone: ${user.phoneNumber}`);
     }
 
-    console.log("🎉 SEED COMPLETE");
+    console.log("🎉 PRODUCTION SEED COMPLETE");
 }
 
 main()
     .catch((e) => {
         console.error("❌ SEED ERROR:", e);
+        process.exit(1);
     })
     .finally(async () => {
         await prisma.$disconnect();
