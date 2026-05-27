@@ -1,31 +1,61 @@
 const prisma = require('../src/utils/prisma');
 const bcrypt = require('bcryptjs');
 
-async function seed() {
-    console.log('Seeding database...');
+async function main() {
+    console.log("🔥 SEED STARTED");
 
-    // Create sectors and canonical service lists shared by web + mobile.
     const sectorData = [
         {
-            name: 'Civil Records',
-            description: 'Core records and identity services.',
+            name: 'Citizen Service Center',
+            description: 'In-office services for appointments and queue operations.',
             icon: 'Building2',
             services: [
-                { name: 'Birth Certificate', description: 'Request and process official birth certificates.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'FileBadge' },
-                { name: 'Marriage Certificate', description: 'Apply for and verify marriage certificate documents.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'HeartHandshake' },
-                { name: 'ID Renewal', description: 'Renew national identity documents with office verification.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'IdCard' },
-                { name: 'Digital ID', description: 'Manage digital ID issuance and renewal support.', mode: 'ONLINE', availability: '24/7', icon: 'ShieldCheck' },
+                { name: 'Birth Certificate Appointment', description: 'Schedule birth certificate processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Marriage Certificate Appointment', description: 'Schedule marriage certificate processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'ID Card Renewal Appointment', description: 'Renew national ID card.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Digital ID Renewal Appointment', description: 'Renew digital identity.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Passport Application Appointment', description: 'Passport application service.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Revenue Services Appointment', description: 'Tax and revenue appointment.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Land Title Transfer Appointment', description: 'Land ownership transfer.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+
+                { name: 'General Service Queue', description: 'General queue service.', mode: 'QUEUE', availability: 'Mon-Fri' },
+                { name: 'ID Service Queue', description: 'ID-related queue.', mode: 'QUEUE', availability: 'Mon-Fri' },
+                { name: 'Revenue Office Queue', description: 'Revenue queue service.', mode: 'QUEUE', availability: 'Mon-Fri' },
+                { name: 'Land Service Queue', description: 'Land service queue.', mode: 'QUEUE', availability: 'Mon-Fri' },
+                { name: 'Express Queue Service', description: 'Fast-track queue service.', mode: 'QUEUE', availability: 'Mon-Fri' }
             ]
         },
         {
-            name: 'Operations',
-            description: 'Queue, appointments, revenue, and land operations.',
-            icon: 'BriefcaseBusiness',
+            name: 'Help Desk Online Services',
+            description: 'Online services portal.',
+            icon: 'Globe',
             services: [
-                { name: 'Queue Services', description: 'Take queue tickets and monitor live queue position.', mode: 'QUEUE', availability: 'Mon-Fri', icon: 'Ticket' },
-                { name: 'Revenue Services', description: 'Handle municipal revenue, tax, and payment-related services.', mode: 'ONLINE', availability: '24/7', icon: 'Landmark' },
-                { name: 'Land Title Services', description: 'Submit and track land title and transfer processes.', mode: 'ONLINE', availability: '24/7', icon: 'MapPinned' },
-                { name: 'Appointment Booking', description: 'Book service appointments across available departments.', mode: 'APPOINTMENT', availability: 'Mon-Fri', icon: 'CalendarDays' }
+                { name: 'Title Transfer Online Service', description: 'Online land title transfer.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Birth Certificate Online Request', description: 'Online birth certificate request.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Marriage Certificate Online Request', description: 'Online marriage request.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Land Management Service', description: 'Manage land records online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Document Verification Service', description: 'Verify documents online.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Complaint Submission Service', description: 'Submit complaints online.', mode: 'ONLINE', availability: '24/7' }
+            ]
+        },
+        {
+            name: 'Utility & Infrastructure Services',
+            description: 'Utility connections and infrastructure services.',
+            icon: 'Zap',
+            services: [
+                { name: 'Electricity Connection Request', description: 'New electricity connection.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Water Connection Request', description: 'New water connection.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Construction Permit Application', description: 'Building permit approval.', mode: 'APPOINTMENT', availability: 'Mon-Fri' }
+            ]
+        },
+        {
+            name: 'Business & Revenue Services',
+            description: 'Business registration and tax services.',
+            icon: 'Briefcase',
+            services: [
+                { name: 'Business License Registration', description: 'Register new business.', mode: 'ONLINE', availability: '24/7' },
+                { name: 'Tax Clearance Certificate', description: 'Tax clearance processing.', mode: 'APPOINTMENT', availability: 'Mon-Fri' },
+                { name: 'Property Valuation Service', description: 'Land/property valuation.', mode: 'APPOINTMENT', availability: 'Mon-Fri' }
             ]
         }
     ];
@@ -33,93 +63,130 @@ async function seed() {
     for (const s of sectorData) {
         const sector = await prisma.serviceSector.upsert({
             where: { name: s.name },
-            update: {
-                description: s.description,
-                icon: s.icon,
-            },
+            update: {},
             create: {
                 name: s.name,
                 description: s.description,
-                icon: s.icon,
+                icon: s.icon
             }
         });
 
         for (const svc of s.services) {
-            const serviceId = `${sector.id}-${svc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
-            await prisma.service.upsert({
-                where: { id: serviceId },
-                update: {
-                    name: svc.name,
-                    description: svc.description,
-                    mode: svc.mode,
-                    availability: svc.availability,
-                    icon: svc.icon,
-                    sectorId: sector.id
-                },
-                create: {
-                    id: serviceId,
-                    name: svc.name,
-                    description: svc.description,
-                    mode: svc.mode,
-                    availability: svc.availability,
-                    icon: svc.icon,
-                    sectorId: sector.id
-                }
+            // Find existing service by name and sectorId to avoid unique key lookup issues
+            const existingService = await prisma.service.findFirst({
+                where: { name: svc.name, sectorId: sector.id }
             });
+
+            if (existingService) {
+                await prisma.service.update({
+                    where: { id: existingService.id },
+                    data: {
+                        description: svc.description,
+                        mode: svc.mode,
+                        availability: svc.availability
+                    }
+                });
+            } else {
+                await prisma.service.create({
+                    data: {
+                        name: svc.name,
+                        description: svc.description,
+                        mode: svc.mode,
+                        availability: svc.availability,
+                        sectorId: sector.id
+                    }
+                });
+            }
         }
     }
 
-    // Create Admin and Officer
+    console.log("🧹 Clearing existing transaction data & users to avoid conflicts...");
+    await prisma.systemLog.deleteMany({});
+    await prisma.notification.deleteMany({});
+    await prisma.queue.deleteMany({});
+    await prisma.appointment.deleteMany({});
+    await prisma.serviceRequest.deleteMany({});
+    await prisma.passwordResetToken.deleteMany({});
+    await prisma.helpDeskQuestion.deleteMany({});
+    await prisma.user.deleteMany({});
+
     const adminPassword = await bcrypt.hash('admin123', 10);
     const officerPassword = await bcrypt.hash('officer123', 10);
+    const citizenPassword = await bcrypt.hash('password123', 10);
+    const helpDeskPassword = await bcrypt.hash('1234', 10);
 
-    const users = await Promise.all([
-        prisma.user.upsert({
-            where: { phoneNumber: '0911000000' },
-            update: {},
-            create: {
-                name: 'System Admin',
-                phoneNumber: '0911000000',
-                password: adminPassword,
-                role: 'ADMIN',
-                identificationNumber: 'ADM-001',
-                nationalId: '1111111111111111'
-            }
-        }),
-        prisma.user.upsert({
-            where: { phoneNumber: '0922000000' },
-            update: {},
-            create: {
-                name: 'Service Officer',
-                phoneNumber: '0922000000',
-                password: officerPassword,
-                role: 'OFFICER',
-                identificationNumber: 'OFF-001',
-                nationalId: '2222222222222222'
-            }
-        }),
-        prisma.user.upsert({
-            where: { phoneNumber: '0933333331' },
-            update: {},
-            create: {
-                name: 'Help Desk Officer',
-                
-                phoneNumber: '0933333331',
-                password:'123help',
-                role: 'HELP_DESK',
-                identificationNumber: 'HD-001',
-                nationalId: '3333333333333333'
-            }
-        }),
-    ]);
+    const users = [
+        {
+            name: 'System Admin',
+            phoneNumber: '0911000000',
+            password: adminPassword,
+            role: 'ADMIN',
+            identificationNumber: 'ADM-001',
+            nationalId: '1111111111111111'
+        },
+        {
+            name: 'Custom Admin',
+            phoneNumber: '0911111111',
+            password: adminPassword,
+            role: 'ADMIN',
+            identificationNumber: 'ADM-CUSTOM-001',
+            nationalId: '1111111111111112'
+        },
+        {
+            name: 'Sample Officer',
+            phoneNumber: '0900000000',
+            password: officerPassword,
+            role: 'OFFICER',
+            identificationNumber: 'OFF-001',
+            nationalId: '2222222222222222'
+        },
+        {
+            name: 'Service Officer',
+            phoneNumber: '0922000000',
+            password: officerPassword,
+            role: 'OFFICER',
+            identificationNumber: 'OFF-002',
+            nationalId: '2222222222222223'
+        },
+        {
+            name: 'Sample Citizen',
+            phoneNumber: '0909090909',
+            password: citizenPassword,
+            role: 'CITIZEN',
+            identificationNumber: 'CIT-001',
+            nationalId: '4444444444444444'
+        },
+        {
+            name: 'Help Desk Officer',
+            phoneNumber: '0933333333',
+            password: helpDeskPassword,
+            role: 'HELP_DESK',
+            identificationNumber: 'HD-001',
+            nationalId: '3333333333333333'
+        }
+    ];
 
-    console.log('Seeding completed:', sectorData.length, 'sectors and', users.length, 'users created');
+    for (const user of users) {
+        await prisma.user.upsert({
+            where: { phoneNumber: user.phoneNumber },
+            update: {
+                name: user.name,
+                password: user.password,
+                role: user.role,
+                identificationNumber: user.identificationNumber,
+                nationalId: user.nationalId
+            },
+            create: user
+        });
+        console.log(`👤 User seeded/updated: ${user.name} (${user.role}) - Phone: ${user.phoneNumber}`);
+    }
+
+    console.log("🎉 SEED COMPLETE");
 }
 
-seed()
+main()
     .catch((e) => {
-        console.error(e);
-        process.exit(1);
+        console.error("❌ SEED ERROR:", e);
     })
     .finally(async () => {
         await prisma.$disconnect();

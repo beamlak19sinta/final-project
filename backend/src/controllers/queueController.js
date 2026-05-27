@@ -1,10 +1,29 @@
 const prisma = require('../utils/prisma');
 
 const takeTicket = async (req, res) => {
+    console.log('[takeTicket] req.body:', req.body);
+    console.log('[takeTicket] userId from token:', req.user?.id);
     const { serviceId } = req.body;
     const userId = req.user.id;
 
     try {
+        // ✅ Validate serviceId is present
+        if (!serviceId || typeof serviceId !== 'string' || !serviceId.trim()) {
+            return res.status(400).json({ message: 'serviceId is required' });
+        }
+
+        // ✅ Confirm service exists in DB before touching Queue
+        const service = await prisma.service.findUnique({
+            where: { id: serviceId.trim() }
+        });
+        if (!service) {
+            console.warn('[takeTicket] Service not found for id:', serviceId);
+            return res.status(404).json({ message: `Service not found for id: ${serviceId}` });
+        }
+        if (service.mode !== 'QUEUE') {
+            return res.status(400).json({ message: 'Selected service is not a queue-based service' });
+        }
+
         // Check if user already has an active ticket for today
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
@@ -24,7 +43,7 @@ const takeTicket = async (req, res) => {
         // Get the next ticket number for the day
         const ticketCount = await prisma.queue.count({
             where: {
-                serviceId,
+                serviceId: service.id,
                 createdAt: { gte: startOfDay }
             }
         });
@@ -35,16 +54,17 @@ const takeTicket = async (req, res) => {
             data: {
                 ticketNumber,
                 userId,
-                serviceId,
+                serviceId: service.id,
                 status: 'WAITING'
             },
             include: { service: true }
         });
 
+        console.log('[takeTicket] Queue created:', queue.id, 'ticket:', ticketNumber);
+
         // Create notification for user
-        const notificationModel = prisma.notification || prisma.notifications;
-        if (notificationModel) {
-            await notificationModel.create({
+        try {
+            await prisma.notification.create({
                 data: {
                     userId,
                     title: 'Queue Number Generated',
@@ -53,10 +73,13 @@ const takeTicket = async (req, res) => {
                     relatedId: queue.id
                 }
             });
+        } catch (notifErr) {
+            console.warn('[takeTicket] Notification creation failed (non-fatal):', notifErr.message);
         }
 
         res.status(201).json(queue);
     } catch (error) {
+        console.error('[takeTicket] Error:', error);
         res.status(500).json({ message: 'Failed to take ticket', error: error.message });
     }
 };
@@ -137,9 +160,8 @@ const updateQueueStatus = async (req, res) => {
 
         // Create notification if status is CALLING
         if (status === 'CALLING') {
-            const notificationModel = prisma.notification || prisma.notifications;
-            if (notificationModel) {
-                await notificationModel.create({
+            try {
+                await prisma.notification.create({
                     data: {
                         userId: queue.userId,
                         title: 'Your Turn!',
@@ -148,6 +170,8 @@ const updateQueueStatus = async (req, res) => {
                         relatedId: queue.id
                     }
                 });
+            } catch (notifErr) {
+                console.warn('[updateQueueStatus] Notification failed (non-fatal):', notifErr.message);
             }
         }
 
@@ -198,6 +222,7 @@ const forwardTicket = async (req, res) => {
 };
 
 const registerWalkIn = async (req, res) => {
+    console.log('[registerWalkIn] req.body:', req.body);
     const { name, phoneNumber, serviceId } = req.body;
     const officerId = req.user.id;
 
@@ -205,16 +230,27 @@ const registerWalkIn = async (req, res) => {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        // For walk-ins, we can either use an existing user or create a temporary one
-        // Let's see if user exists by phone
+        // ✅ Validate service before doing anything
+        if (!serviceId || typeof serviceId !== 'string') {
+            return res.status(400).json({ message: 'serviceId is required' });
+        }
+        const service = await prisma.service.findUnique({ where: { id: serviceId.trim() } });
+        if (!service) {
+            return res.status(404).json({ message: `Service not found for id: ${serviceId}` });
+        }
+
+        // Find existing user by phone or create a walk-in placeholder
         let user = await prisma.user.findUnique({ where: { phoneNumber } });
 
         if (!user) {
-            // Create a placeholder user for walk-in
+            // Generate a unique placeholder nationalId for walk-in users
+            // (nationalId is @unique in schema and required — cannot be omitted)
+            const placeholderNationalId = `WALKIN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
             user = await prisma.user.create({
                 data: {
                     name,
                     phoneNumber,
+                    nationalId: placeholderNationalId,
                     password: 'WALKIN_USER', // Dummy password
                     role: 'CITIZEN'
                 }

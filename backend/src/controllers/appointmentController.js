@@ -17,9 +17,11 @@ const getDateRange = (dateStr) => {
 // ✅ BOOK APPOINTMENT
 // ========================
 const bookAppointment = async (req, res) => {
+    console.log('[bookAppointment] req.body:', req.body);
     const { serviceId, date, appointmentDate, timeSlot } = req.body;
     const bookingDate = date || appointmentDate;
     const userId = req.user.id;
+    console.log('[bookAppointment] userId from token:', userId, '| serviceId:', serviceId, '| date:', bookingDate, '| timeSlot:', timeSlot);
 
     try {
         // ✅ Validate input
@@ -82,10 +84,8 @@ const bookAppointment = async (req, res) => {
         });
 
         // ✅ Notification (safe)
-        const notificationModel = prisma.notification ?? prisma.notifications;
-
-        if (notificationModel) {
-            await notificationModel.create({
+        try {
+            await prisma.notification.create({
                 data: {
                     userId,
                     title: 'Appointment Request Received',
@@ -94,6 +94,8 @@ const bookAppointment = async (req, res) => {
                     relatedId: appointment.id
                 }
             });
+        } catch (notifErr) {
+            console.warn('[bookAppointment] Notification failed (non-fatal):', notifErr.message);
         }
 
         res.status(201).json(appointment);
@@ -112,6 +114,7 @@ const bookAppointment = async (req, res) => {
 // ========================
 const getMyAppointments = async (req, res) => {
     const userId = req.user.id;
+    console.log('[getMyAppointments] Fetching appointments for userId:', userId);
 
     try {
         const appointments = await prisma.appointment.findMany({
