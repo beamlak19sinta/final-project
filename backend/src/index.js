@@ -46,15 +46,34 @@ app.get('/api/test', (req, res) => {
 app.get('/api/db-check', async (req, res) => {
   try {
     const prisma = require('./utils/prisma');
-    const userCount = await prisma.user.count();
+    const [userCount, serviceCount, sectorCount, queueCount, appointmentCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.service.count(),
+      prisma.serviceSector.count(),
+      prisma.queue.count(),
+      prisma.appointment.count(),
+    ]);
+    const queueServices = await prisma.service.count({ where: { mode: 'QUEUE' } });
+    const apptServices  = await prisma.service.count({ where: { mode: 'APPOINTMENT' } });
+    const onlineServices = await prisma.service.count({ where: { mode: 'ONLINE' } });
+
     res.json({
       status: 'success',
       message: 'Database connection verified',
-      userCount,
+      counts: {
+        users: userCount,
+        sectors: sectorCount,
+        services: serviceCount,
+        servicesQUEUE: queueServices,
+        servicesAPPOINTMENT: apptServices,
+        servicesONLINE: onlineServices,
+        queues: queueCount,
+        appointments: appointmentCount,
+      },
       timestamp: new Date()
     });
   } catch (error) {
-    console.error('[DB CHECK ERROR] Failed to query User table:', error);
+    console.error('[DB CHECK ERROR]:', error);
     res.status(500).json({
       status: 'error',
       message: 'Database check failed',
