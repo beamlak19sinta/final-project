@@ -310,6 +310,46 @@ const updateAppointmentStatus = async (req, res) => {
             include: { service: true, user: true }
         });
 
+        // ✅ Send notification to citizen based on new status
+        try {
+            const notifMap = {
+                SCHEDULED: {
+                    title: 'Appointment Approved',
+                    message: `Your appointment for ${appointment.service.name} has been approved and is now scheduled.`,
+                    type: 'APPOINTMENT_SCHEDULED'
+                },
+                COMPLETED: {
+                    title: 'Appointment Completed',
+                    message: `Your appointment for ${appointment.service.name} has been marked as completed.`,
+                    type: 'APPOINTMENT_COMPLETED'
+                },
+                REJECTED: {
+                    title: 'Appointment Rejected',
+                    message: `Your appointment for ${appointment.service.name} was rejected. Reason: ${rejectionReason}`,
+                    type: 'APPOINTMENT_REJECTED'
+                },
+                CANCELLED: {
+                    title: 'Appointment Cancelled',
+                    message: `Your appointment for ${appointment.service.name} has been cancelled.`,
+                    type: 'APPOINTMENT_CANCELLED'
+                }
+            };
+
+            if (notifMap[status]) {
+                await prisma.notification.create({
+                    data: {
+                        userId: appointment.userId,
+                        title: notifMap[status].title,
+                        message: notifMap[status].message,
+                        type: notifMap[status].type,
+                        relatedId: appointment.id
+                    }
+                });
+            }
+        } catch (notifErr) {
+            console.warn('[updateAppointmentStatus] Notification failed (non-fatal):', notifErr.message);
+        }
+
         res.json({
             message: `Appointment updated to ${status}`,
             data: appointment

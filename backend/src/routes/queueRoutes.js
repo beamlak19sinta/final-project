@@ -15,7 +15,7 @@ router.patch('/:queueId/status', authenticateToken, authorizeRoles('OFFICER', 'H
 router.patch('/status/:queueId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'), queueController.updateQueueStatus);
 router.post('/forward/:queueId', authenticateToken, authorizeRoles('OFFICER'), queueController.forwardTicket);
 router.delete('/:queueId', authenticateToken, queueController.cancelTicket);
-router.post('/register-walkin', authenticateToken, authorizeRoles('HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.registerWalkIn);
+router.post('/register-walkin', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.registerWalkIn);
 
 // Mobile format aliases (for backward compatibility)
 router.post('/', authenticateToken, queueController.takeTicket); // Alias for /take

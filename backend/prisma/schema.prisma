@@ -185,6 +185,7 @@ enum QueueStatus {
   PROCESSING
   COMPLETED
   REJECTED
+  CANCELLED
 }
 
 enum AppointmentStatus {

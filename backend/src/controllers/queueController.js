@@ -32,7 +32,8 @@ const takeTicket = async (req, res) => {
             where: {
                 userId,
                 createdAt: { gte: startOfDay },
-                status: { notIn: ['COMPLETED', 'REJECTED'] }
+                // ✅ CANCELLED tickets don't block re-queueing
+                status: { notIn: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
             }
         });
 
@@ -99,7 +100,7 @@ const getMyQueueStatus = async (req, res) => {
             where: {
                 serviceId: queue.serviceId,
                 status: 'WAITING',
-                createdAt: { lt: queue.createdAt }
+                ticketNumber: { lt: queue.ticketNumber }
             }
         });
 
@@ -115,7 +116,8 @@ const getQueueList = async (req, res) => {
         const queues = await prisma.queue.findMany({
             where: {
                 service: { sectorId },
-                status: { notIn: ['COMPLETED', 'REJECTED'] }
+                // ✅ Exclude all terminal states from active view
+                status: { notIn: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
             },
             include: { user: true, service: true },
             orderBy: { createdAt: 'asc' }
@@ -132,7 +134,8 @@ const getQueueHistory = async (req, res) => {
         const queues = await prisma.queue.findMany({
             where: {
                 service: { sectorId },
-                status: { in: ['COMPLETED', 'REJECTED'] }
+                // ✅ Include CANCELLED in history so officers see the full picture
+                status: { in: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
             },
             include: { user: true, service: true },
             orderBy: { updatedAt: 'desc' }
@@ -238,6 +241,9 @@ const registerWalkIn = async (req, res) => {
         if (!service) {
             return res.status(404).json({ message: `Service not found for id: ${serviceId}` });
         }
+        if (service.mode !== 'QUEUE') {
+            return res.status(400).json({ message: 'Selected service is not a queue-based service' });
+        }
 
         // Find existing user by phone or create a walk-in placeholder
         let user = await prisma.user.findUnique({ where: { phoneNumber } });
@@ -262,7 +268,8 @@ const registerWalkIn = async (req, res) => {
             where: {
                 userId: user.id,
                 createdAt: { gte: startOfDay },
-                status: { notIn: ['COMPLETED', 'REJECTED'] }
+                // ✅ CANCELLED tickets don't block re-queueing
+                status: { notIn: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
             }
         });
 
@@ -294,8 +301,12 @@ const registerWalkIn = async (req, res) => {
 const getMyQueueHistory = async (req, res) => {
     const userId = req.user.id;
     try {
+        // ✅ Exclude still-active tickets; show only terminal states
         const history = await prisma.queue.findMany({
-            where: { userId },
+            where: {
+                userId,
+                status: { in: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
+            },
             include: { service: { include: { sector: true } } },
             orderBy: { createdAt: 'desc' }
         });
@@ -322,8 +333,10 @@ const cancelTicket = async (req, res) => {
             return res.status(400).json({ message: 'Only waiting tickets can be cancelled' });
         }
 
-        await prisma.queue.delete({
-            where: { id: queueId }
+        // ✅ Update to CANCELLED instead of deleting — preserves history
+        await prisma.queue.update({
+            where: { id: queueId },
+            data: { status: 'CANCELLED' }
         });
 
         res.json({ message: 'Ticket cancelled successfully' });
