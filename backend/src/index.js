@@ -3,7 +3,6 @@
 const express = require('express');
 const cors = require('cors');
 const os = require('os');
-
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -19,98 +18,60 @@ const helpdeskRoutes = require('./routes/helpdeskRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
-
 const PORT = process.env.PORT || 5000;
 
 /* =========================================================
-   CORS FIX
+   CLEAN CORS FIX (ONLY ONE WAY - SAFE)
 ========================================================= */
 
-app.use(cors({
+const corsOptions = {
     origin: '*',
-    methods: [
-        'GET',
-        'POST',
-        'PUT',
-        'PATCH',
-        'DELETE',
-        'OPTIONS'
-    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
         'Content-Type',
         'Authorization',
         'Origin',
         'Accept',
         'X-Requested-With'
-    ]
-}));
+    ],
+    optionsSuccessStatus: 204
+};
 
-/* =========================================================
-   MANUAL CORS HEADERS
-========================================================= */
+// MUST be FIRST middleware
+app.use(cors(corsOptions));
 
-app.use((req, res, next) => {
-
-    res.header('Access-Control-Allow-Origin', '*');
-
-    res.header(
-        'Access-Control-Allow-Methods',
-        'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-    );
-
-    res.header(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-    );
-
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
-    next();
-
-});
+// MUST handle preflight requests
+app.options('*', cors(corsOptions));
 
 /* =========================================================
    BODY PARSER
 ========================================================= */
 
-app.use(express.json({
-    limit: '10mb'
-}));
-
-app.use(express.urlencoded({
-    extended: true
-}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 /* =========================================================
    ROOT ROUTES
 ========================================================= */
 
 app.get('/', (req, res) => {
-
     res.send('Backend running successfully');
-
 });
 
 app.get('/api', (req, res) => {
-
     res.json({
         success: true,
         message: 'API is running',
         timestamp: new Date()
     });
-
 });
 
 app.get('/api/test', (req, res) => {
-
     res.json({
         success: true,
         message: 'API working correctly',
         timestamp: new Date()
     });
-
 });
 
 /* =========================================================
@@ -118,9 +79,7 @@ app.get('/api/test', (req, res) => {
 ========================================================= */
 
 app.get('/api/db-check', async (req, res) => {
-
     try {
-
         const prisma = require('./utils/prisma');
 
         const [
@@ -150,42 +109,28 @@ app.get('/api/db-check', async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
-
 });
 
 /* =========================================================
-   API ROUTES
+   ROUTES
 ========================================================= */
 
 app.use('/api/auth', authRoutes);
-
 app.use('/api/services', serviceRoutes);
-
 app.use('/api/queues', queueRoutes);
-
 app.use('/api/appointments', appointmentRoutes);
-
 app.use('/api/requests', requestRoutes);
-
 app.use('/api/admin', adminRoutes);
-
 app.use('/api/notifications', notificationRoutes);
-
 app.use('/api/analytics', analyticsRoutes);
-
 app.use('/api/feedback', feedbackRoutes);
-
 app.use('/api/helpdesk', helpdeskRoutes);
-
 app.use('/api/admin/reports', reportRoutes);
 
 /* =========================================================
@@ -193,12 +138,10 @@ app.use('/api/admin/reports', reportRoutes);
 ========================================================= */
 
 app.use((req, res) => {
-
     res.status(404).json({
         success: false,
         message: 'Route not found'
     });
-
 });
 
 /* =========================================================
@@ -206,14 +149,11 @@ app.use((req, res) => {
 ========================================================= */
 
 app.use((err, req, res, next) => {
-
     console.error('SERVER ERROR:', err);
-
     res.status(500).json({
         success: false,
         message: err.message || 'Internal Server Error'
     });
-
 });
 
 /* =========================================================
@@ -221,35 +161,19 @@ app.use((err, req, res, next) => {
 ========================================================= */
 
 app.listen(PORT, '0.0.0.0', () => {
-
     const interfaces = os.networkInterfaces();
-
     const addresses = [];
 
     Object.values(interfaces).forEach((items) => {
-
         items.forEach((iface) => {
-
-            if (
-                iface.family === 'IPv4' &&
-                !iface.internal
-            ) {
-
+            if (iface.family === 'IPv4' && !iface.internal) {
                 addresses.push(iface.address);
-
             }
-
         });
-
     });
 
     console.log('====================================');
-
     console.log(`Server running on PORT ${PORT}`);
-
     console.log(`Local IPs: ${addresses.join(', ')}`);
-
     console.log('====================================');
-
 });
-
