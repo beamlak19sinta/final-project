@@ -4,39 +4,21 @@ const router = express.Router();
 const queueController = require('../controllers/queueController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
-/* =========================================================
-   CORE QUEUE ROUTES (CLEAN VERSION - NO CRASH)
-========================================================= */
+/* =======================
+   TAKE TICKET
+======================= */
+router.post('/take', authenticateToken, queueController.takeTicket);
+router.post('/', authenticateToken, queueController.takeTicket);
 
-// 🔹 Take ticket
-router.post(
-    '/take',
-    authenticateToken,
-    queueController.takeTicket
-);
+/* =======================
+   MY QUEUE STATUS
+======================= */
+router.get('/my-status', authenticateToken, queueController.getMyQueueStatus);
+router.get('/active', authenticateToken, queueController.getMyQueueStatus);
 
-// 🔹 Alias for mobile/web
-router.post(
-    '/',
-    authenticateToken,
-    queueController.takeTicket
-);
-
-// 🔹 Get current active queue status
-router.get(
-    '/my-status',
-    authenticateToken,
-    queueController.getMyQueueStatus
-);
-
-// 🔹 Alias for active status
-router.get(
-    '/active',
-    authenticateToken,
-    queueController.getMyQueueStatus
-);
-
-// 🔹 Get queue list for officers
+/* =======================
+   QUEUE LIST (OFFICERS)
+======================= */
 router.get(
     '/list/:sectorId',
     authenticateToken,
@@ -44,7 +26,9 @@ router.get(
     queueController.getQueueList
 );
 
-// 🔹 Update queue status (CALLING, PROCESSING, etc.)
+/* =======================
+   UPDATE STATUS
+======================= */
 router.patch(
     '/:queueId/status',
     authenticateToken,
@@ -52,7 +36,9 @@ router.patch(
     queueController.updateQueueStatus
 );
 
-// 🔹 Forward ticket to another sector
+/* =======================
+   FORWARD
+======================= */
 router.post(
     '/forward/:queueId',
     authenticateToken,
@@ -60,7 +46,9 @@ router.post(
     queueController.forwardTicket
 );
 
-// 🔹 Register walk-in user (officer only)
+/* =======================
+   WALK-IN
+======================= */
 router.post(
     '/register-walkin',
     authenticateToken,

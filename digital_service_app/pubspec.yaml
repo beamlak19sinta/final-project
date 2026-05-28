@@ -1,0 +1,49 @@
+name: digital_service_app
+description: "Outer Flutter package for the digital_service_app workspace."
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.11.5 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  http: ^1.2.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.2
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#F6F8FC"
+  adaptive_icon_foreground: "assets/images/logo.png"
+
+flutter_native_splash:
+  android: true
+  ios: false
+  web: false
+  color: "#F6F8FC"
+  image: "assets/images/logo.png"
+  android_12:
+    color: "#F6F8FC"
+    image: "assets/images/logo.png"
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/l10n/

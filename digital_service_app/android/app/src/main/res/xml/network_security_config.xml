@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows cleartext HTTP ONLY for the local/LAN backend.
+  NOTE: For a true production release, prefer HTTPS and remove cleartext.
+-->
+<network-security-config>
+    <!-- Allow cleartext globally for development (hotspot/LAN IP shifts) -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Developer PC Hotspot IP (Device gateway) -->
+        <domain includeSubdomains="false">192.168.137.1</domain>
+        <!-- LAN IP for Wi‑Fi testing -->
+        <domain includeSubdomains="false">192.168.162.213</domain>
+        <!-- Target IP -->
+        <domain includeSubdomains="false">192.168.137.190</domain>
+        <!-- Secondary host -->
+        <domain includeSubdomains="false">10.161.82.64</domain>
+        <!-- Android emulator loopback -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

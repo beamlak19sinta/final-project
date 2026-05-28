@@ -1,8 +1,8 @@
 const prisma = require('../utils/prisma');
 
-/* =========================================================
+/* =========================
    TAKE TICKET
-========================================================= */
+========================= */
 const takeTicket = async (req, res) => {
     try {
         const serviceIdRaw = req.body.serviceId || req.body.service_id;
@@ -60,9 +60,9 @@ const takeTicket = async (req, res) => {
     }
 };
 
-/* =========================================================
-   UPDATE QUEUE STATUS (ONLY ONE VERSION)
-========================================================= */
+/* =========================
+   UPDATE STATUS
+========================= */
 const updateQueueStatus = async (req, res) => {
     try {
         const { queueId } = req.params;
@@ -101,47 +101,6 @@ const updateQueueStatus = async (req, res) => {
             include: { service: true, user: true }
         });
 
-        // Notification (only important ones)
-        let title = '';
-        let message = '';
-        let type = '';
-
-        if (status === 'CALLING') {
-            title = 'Your Turn';
-            message = `Proceed to ${updated.service.name}`;
-            type = 'QUEUE_CALLED';
-        }
-
-        if (status === 'PROCESSING') {
-            title = 'Processing';
-            message = `Your request is being processed`;
-            type = 'QUEUE_PROCESSING';
-        }
-
-        if (status === 'COMPLETED') {
-            title = 'Completed';
-            message = `Queue completed`;
-            type = 'QUEUE_COMPLETED';
-        }
-
-        if (status === 'REJECTED') {
-            title = 'Rejected';
-            message = `Queue rejected`;
-            type = 'QUEUE_REJECTED';
-        }
-
-        if (title) {
-            await prisma.notification.create({
-                data: {
-                    userId: updated.userId,
-                    title,
-                    message,
-                    type,
-                    relatedId: updated.id
-                }
-            });
-        }
-
         return res.json(updated);
 
     } catch (error) {
@@ -149,9 +108,9 @@ const updateQueueStatus = async (req, res) => {
     }
 };
 
-/* =========================================================
-   GET MY STATUS
-========================================================= */
+/* =========================
+   MY STATUS
+========================= */
 const getMyQueueStatus = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -182,9 +141,9 @@ const getMyQueueStatus = async (req, res) => {
     }
 };
 
-/* =========================================================
-   GET QUEUE LIST
-========================================================= */
+/* =========================
+   QUEUE LIST
+========================= */
 const getQueueList = async (req, res) => {
     try {
         const { sectorId } = req.params;
@@ -205,9 +164,9 @@ const getQueueList = async (req, res) => {
     }
 };
 
-/* =========================================================
-   FORWARD TICKET
-========================================================= */
+/* =========================
+   FORWARD
+========================= */
 const forwardTicket = async (req, res) => {
     try {
         const { queueId } = req.params;
@@ -244,9 +203,9 @@ const forwardTicket = async (req, res) => {
     }
 };
 
-/* =========================================================
+/* =========================
    WALK-IN
-========================================================= */
+========================= */
 const registerWalkIn = async (req, res) => {
     try {
         const { name, phoneNumber } = req.body;
@@ -290,9 +249,6 @@ const registerWalkIn = async (req, res) => {
     }
 };
 
-/* =========================================================
-   EXPORTS
-========================================================= */
 module.exports = {
     takeTicket,
     updateQueueStatus,
