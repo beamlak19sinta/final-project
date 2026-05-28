@@ -1,7 +1,9 @@
 
+
 const express = require('express');
 const cors = require('cors');
 const os = require('os');
+
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -17,13 +19,14 @@ const helpdeskRoutes = require('./routes/helpdeskRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
+
 const PORT = process.env.PORT || 5000;
 
 /* =========================================================
-   VERY IMPORTANT CORS FIX
+   CORS FIX
 ========================================================= */
 
-const corsOptions = {
+app.use(cors({
     origin: '*',
     methods: [
         'GET',
@@ -39,14 +42,12 @@ const corsOptions = {
         'Origin',
         'Accept',
         'X-Requested-With'
-    ],
-    credentials: false,
-    optionsSuccessStatus: 200
-};
+    ]
+}));
 
-app.use(cors(corsOptions));
-
-app.options('*', cors(corsOptions));
+/* =========================================================
+   MANUAL CORS HEADERS
+========================================================= */
 
 app.use((req, res, next) => {
 
@@ -63,17 +64,20 @@ app.use((req, res, next) => {
     );
 
     if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        return res.status(200).end();
     }
 
     next();
+
 });
 
 /* =========================================================
    BODY PARSER
 ========================================================= */
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+    limit: '10mb'
+}));
 
 app.use(express.urlencoded({
     extended: true
@@ -163,15 +167,25 @@ app.get('/api/db-check', async (req, res) => {
 ========================================================= */
 
 app.use('/api/auth', authRoutes);
+
 app.use('/api/services', serviceRoutes);
+
 app.use('/api/queues', queueRoutes);
+
 app.use('/api/appointments', appointmentRoutes);
+
 app.use('/api/requests', requestRoutes);
+
 app.use('/api/admin', adminRoutes);
+
 app.use('/api/notifications', notificationRoutes);
+
 app.use('/api/analytics', analyticsRoutes);
+
 app.use('/api/feedback', feedbackRoutes);
+
 app.use('/api/helpdesk', helpdeskRoutes);
+
 app.use('/api/admin/reports', reportRoutes);
 
 /* =========================================================
@@ -216,8 +230,13 @@ app.listen(PORT, '0.0.0.0', () => {
 
         items.forEach((iface) => {
 
-            if (iface.family === 'IPv4' && !iface.internal) {
+            if (
+                iface.family === 'IPv4' &&
+                !iface.internal
+            ) {
+
                 addresses.push(iface.address);
+
             }
 
         });
@@ -225,8 +244,11 @@ app.listen(PORT, '0.0.0.0', () => {
     });
 
     console.log('====================================');
+
     console.log(`Server running on PORT ${PORT}`);
+
     console.log(`Local IPs: ${addresses.join(', ')}`);
+
     console.log('====================================');
 
 });
