@@ -1,56 +1,67 @@
 const express = require('express');
 const router = express.Router();
 
+const appointmentController = require('../controllers/appointmentController');
+
 const {
-    bookAppointment,
-    getMyAppointments,
-    getAvailableSlots,
-    getSectorAppointments,
-    cancelAppointment,
-    updateAppointmentStatus
-} = require('../controllers/appointmentController');
+    authenticateToken,
+    authorizeRoles
+} = require('../middleware/auth');
 
-const { authenticateToken } = require('../middleware/auth');
+/* =========================================
+   BOOK APPOINTMENT
+========================================= */
+router.post(
+    '/',
+    authenticateToken,
+    appointmentController.bookAppointment
+);
 
+/* =========================================
+   MY APPOINTMENTS
+========================================= */
+router.get(
+    '/my',
+    authenticateToken,
+    appointmentController.getMyAppointments
+);
 
-// ========================
-// ✅ APPOINTMENT ROUTES
-// ========================
+/* =========================================
+   AVAILABLE SLOTS
+========================================= */
+router.get(
+    '/slots',
+    authenticateToken,
+    appointmentController.getAvailableSlots
+);
 
-// 📌 Book appointment
-router.post('/book', authenticateToken, bookAppointment);
+/* =========================================
+   SECTOR APPOINTMENTS
+========================================= */
+router.get(
+    '/sector/:sectorId',
+    authenticateToken,
+    authorizeRoles('OFFICER', 'ADMIN'),
+    appointmentController.getSectorAppointments
+);
 
-// 📌 Get my appointments (frontend uses this)
-router.get('/my', authenticateToken, getMyAppointments);
+/* =========================================
+   UPDATE STATUS
+========================================= */
+router.patch(
+    '/:appointmentId/status',
+    authenticateToken,
+    authorizeRoles('OFFICER', 'ADMIN'),
+    appointmentController.updateAppointmentStatus
+);
 
-// 📌 Get sector appointments (officer/admin)
-router.get('/sector/:sectorId', authenticateToken, getSectorAppointments);
+/* =========================================
+   CANCEL APPOINTMENT
+========================================= */
+router.patch(
+    '/cancel/:appointmentId',
+    authenticateToken,
+    appointmentController.cancelAppointment
+);
 
-
-// ========================
-// ⏰ SLOT ROUTES
-// ========================
-
-// 📌 Get available slots (MAIN ONE - KEEP THIS)
-router.get('/slots', authenticateToken, getAvailableSlots);
-router.get('/slots/:serviceId/:date', authenticateToken, getAvailableSlots);
-
-
-// ========================
-// 🔄 UPDATE STATUS (REST shape + legacy path)
-// ========================
-// Preferred: PATCH /api/appointments/:appointmentId/status  body: { status }
-router.patch('/:appointmentId/status', authenticateToken, updateAppointmentStatus);
-// Legacy: PATCH /api/appointments/status/:appointmentId
-router.patch('/status/:appointmentId', authenticateToken, updateAppointmentStatus);
-
-// ========================
-// ❌ CANCEL APPOINTMENT
-// ========================
-router.delete('/:appointmentId', authenticateToken, cancelAppointment);
-
-
-// ========================
-// 📦 EXPORT
-// ========================
 module.exports = router;

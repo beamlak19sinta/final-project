@@ -440,3 +440,14 @@ const updateAppointmentStatus = async (req, res) => {
         });
     }
 };
+/* ========================
+   EXPORTS
+======================== */
+module.exports = {
+    bookAppointment,
+    getMyAppointments,
+    getSectorAppointments,
+    getAvailableSlots,
+    cancelAppointment,
+    updateAppointmentStatus
+};
