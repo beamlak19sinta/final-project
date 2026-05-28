@@ -24,62 +24,182 @@ const SECTOR_DATA = [
         description: 'Core citizen document registration and identity services.',
         icon: 'UserCheck',
         services: [
-            { name: 'National ID Registration',  description: 'Register for a new digital national identity card.',         mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'National ID Renewal',        description: 'Renew an expired national digital identity card.',           mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Lost ID Replacement',        description: 'Request replacement for a lost or damaged identity card.',   mode: 'QUEUE',       availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Birth Certificate',          description: 'Apply for and verify birth certificates online.',            mode: 'ONLINE',      availability: '24/7' },
-            { name: 'Death Certificate',          description: 'Apply for and verify death certificates online.',            mode: 'ONLINE',      availability: '24/7' },
-        ],
+            {
+                name: 'National ID Registration',
+                description: 'Register for a new digital national identity card.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'National ID Renewal',
+                description: 'Renew an expired national digital identity card.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Lost ID Replacement',
+                description: 'Request replacement for a lost or damaged identity card.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Birth Certificate',
+                description: 'Apply for and verify birth certificates online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            },
+            {
+                name: 'Death Certificate',
+                description: 'Apply for and verify death certificates online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            }
+        ]
     },
+
     {
         name: 'Transport Services',
         description: 'Driving license and vehicle ownership registry.',
         icon: 'Car',
         services: [
-            { name: 'Driving License',       description: 'Queue for renewal or replacement of driver license.',           mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Vehicle Registration',  description: 'Queue for registering vehicle purchase and transfer.',           mode: 'QUEUE',       availability: 'Mon-Fri 08:30-17:00' },
-        ],
+            {
+                name: 'Driving License',
+                description: 'Queue for renewal or replacement of driver license.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Vehicle Registration',
+                description: 'Queue for registering vehicle purchase and transfer.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            }
+        ]
     },
+
     {
         name: 'Land Services',
         description: 'Zoning, building permits, property valuation, and transfers.',
         icon: 'Map',
         services: [
-            { name: 'Land Title Transfer',   description: 'Submit documents for official land ownership transfer.',         mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Construction Permit',   description: 'Apply for building permits and urban plan review online.',       mode: 'ONLINE',      availability: '24/7' },
-            { name: 'Property Valuation',    description: 'Property valuation and land assessment session.',               mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-        ],
+            {
+                name: 'Land Title Transfer',
+                description: 'Submit documents for official land ownership transfer.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Construction Permit',
+                description: 'Apply for building permits and urban plan review online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            },
+            {
+                name: 'Property Valuation',
+                description: 'Property valuation and land assessment session.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            }
+        ]
     },
+
     {
         name: 'Revenue Services',
         description: 'Taxes, commercial licensing, and consultations.',
         icon: 'Coins',
         services: [
-            { name: 'Tax Clearance',                   description: 'Collect official annual tax clearance statement.',                         mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Business License',                description: 'Apply for new business registrations and commercial licenses online.',     mode: 'ONLINE',      availability: '24/7' },
-            { name: 'Revenue Service Appointment',     description: 'Schedule formal consulting with tax and revenue officers.',                mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-        ],
+            {
+                name: 'Tax Clearance',
+                description: 'Collect official annual tax clearance statement.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Business License',
+                description: 'Apply for new business registrations and commercial licenses online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            },
+            {
+                name: 'Revenue Service Appointment',
+                description: 'Schedule formal consulting with tax and revenue officers.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            }
+        ]
     },
+
     {
         name: 'Utility Services',
         description: 'Municipal electricity and water infrastructure requests.',
         icon: 'Zap',
         services: [
-            { name: 'Electricity Connection',  description: 'Request new power installation connection online.',               mode: 'ONLINE', availability: '24/7' },
-            { name: 'Water Connection',        description: 'Request new water infrastructure installation connection online.', mode: 'ONLINE', availability: '24/7' },
-        ],
+            {
+                name: 'Electricity Connection',
+                description: 'Request new power installation connection online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            },
+            {
+                name: 'Water Connection',
+                description: 'Request new water infrastructure installation connection online.',
+                mode: 'ONLINE',
+                availability: '24/7'
+            }
+        ]
     },
+
     {
         name: 'Online Help Desk',
         description: 'Inquiries, passport services, and support queues.',
         icon: 'HelpCircle',
         services: [
-            { name: 'Queue Services',          description: 'Join the virtual queue for general queries and help desk assistance.',       mode: 'QUEUE',       availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Appointment Services',    description: 'Book a face-to-face consultation with help desk officers.',                mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Passport Application',    description: 'Verify original documents and process new passport applications.',         mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-            { name: 'Passport Renewal',        description: 'Verify and renew passport documents.',                                     mode: 'APPOINTMENT', availability: 'Mon-Fri 08:30-17:00' },
-        ],
-    },
+            {
+                name: 'Queue Services',
+                description: 'Join the virtual queue for general queries and help desk assistance.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Appointment Services',
+                description: 'Book a face-to-face consultation with help desk officers.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Passport Application',
+                description: 'Verify original documents and process new passport applications.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Passport Renewal',
+                description: 'Verify and renew passport documents.',
+                mode: 'APPOINTMENT',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+
+            // NEW QUEUE SERVICES
+            {
+                name: 'TIN Registration & Update',
+                description: 'Register for a new TIN number or update taxpayer information.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'National ID Biometric Verification',
+                description: 'Complete biometric verification for identity authentication services.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            },
+            {
+                name: 'Civil Document Correction',
+                description: 'Correct mistakes in birth certificates and other civil documents.',
+                mode: 'QUEUE',
+                availability: 'Mon-Fri 08:30-17:00'
+            }
+        ]
+    }
 ];
 
 // ── User definitions ──────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 class AppConfig {
   static const String baseApiUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.161.82.64:5000/api',
+    defaultValue: 'https://final-project-616i.onrender.com/api',
   );
   static const List<String> timeSlots = [
     '08:30 - 09:30',
