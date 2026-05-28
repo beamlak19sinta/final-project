@@ -292,88 +292,151 @@ const updateAppointmentStatus = async (req, res) => {
     const { appointmentId } = req.params;
     const { status, rejectionReason } = req.body;
 
-    const allowed = ['PENDING', 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'REJECTED'];
+    console.log('[updateAppointmentStatus]');
+    console.log('appointmentId:', appointmentId);
+    console.log('status:', status);
+    console.log('rejectionReason:', rejectionReason);
 
-    if (!allowed.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
+    const allowedStatuses = [
+        'PENDING',
+        'SCHEDULED',
+        'COMPLETED',
+        'CANCELLED',
+        'REJECTED'
+    ];
+
+    // ✅ Validate status
+    if (!status || !allowedStatuses.includes(status)) {
+        return res.status(400).json({
+            message: 'Invalid appointment status'
+        });
     }
 
-    if (status === 'REJECTED' && (!rejectionReason || !String(rejectionReason).trim())) {
-        return res.status(400).json({ message: 'Rejection reason is required when rejecting an appointment' });
+    // ✅ Require rejection reason
+    if (
+        status === 'REJECTED' &&
+        (!rejectionReason || !String(rejectionReason).trim())
+    ) {
+        return res.status(400).json({
+            message: 'Rejection reason is required'
+        });
     }
 
     try {
-        const appointment = await prisma.appointment.update({
-            where: { id: String(appointmentId) },
-            data: {
-                status,
-                rejectionReason: status === 'REJECTED' ? String(rejectionReason).trim() : null
+
+        // ✅ Check if appointment exists
+        const existingAppointment = await prisma.appointment.findUnique({
+            where: {
+                id: String(appointmentId)
             },
-            include: { service: true, user: true }
+            include: {
+                service: true,
+                user: true
+            }
         });
 
-        // ✅ Send notification to citizen based on new status
-        try {
-            const notifMap = {
-                SCHEDULED: {
-                    title: 'Appointment Approved',
-                    message: `Your appointment for ${appointment.service.name} has been approved and is now scheduled.`,
-                    type: 'APPOINTMENT_SCHEDULED'
-                },
-                COMPLETED: {
-                    title: 'Appointment Completed',
-                    message: `Your appointment for ${appointment.service.name} has been marked as completed.`,
-                    type: 'APPOINTMENT_COMPLETED'
-                },
-                REJECTED: {
-                    title: 'Appointment Rejected',
-                    message: `Your appointment for ${appointment.service.name} was rejected. Reason: ${rejectionReason}`,
-                    type: 'APPOINTMENT_REJECTED'
-                },
-                CANCELLED: {
-                    title: 'Appointment Cancelled',
-                    message: `Your appointment for ${appointment.service.name} has been cancelled.`,
-                    type: 'APPOINTMENT_CANCELLED'
-                }
-            };
-
-            if (notifMap[status]) {
-                await prisma.notification.create({
-                    data: {
-                        userId: appointment.userId,
-                        title: notifMap[status].title,
-                        message: notifMap[status].message,
-                        type: notifMap[status].type,
-                        relatedId: appointment.id
-                    }
-                });
-            }
-        } catch (notifErr) {
-            console.warn('[updateAppointmentStatus] Notification failed (non-fatal):', notifErr.message);
+        if (!existingAppointment) {
+            return res.status(404).json({
+                message: 'Appointment not found'
+            });
         }
 
-        res.json({
+        // ✅ Update appointment
+        const updatedAppointment = await prisma.appointment.update({
+            where: {
+                id: String(appointmentId)
+            },
+            data: {
+                status,
+                rejectionReason:
+                    status === 'REJECTED'
+                        ? String(rejectionReason).trim()
+                        : null
+            },
+            include: {
+                service: true,
+                user: true
+            }
+        });
+
+        console.log('Appointment updated successfully');
+
+        // =========================
+        // 🔔 CREATE NOTIFICATION
+        // =========================
+
+        try {
+
+            let notificationTitle = '';
+            let notificationMessage = '';
+            let notificationType = '';
+
+            if (status === 'SCHEDULED') {
+                notificationTitle = 'Appointment Approved';
+                notificationMessage =
+                    `Your appointment for ${updatedAppointment.service.name} has been approved.`;
+                notificationType = 'APPOINTMENT_APPROVED';
+            }
+
+            if (status === 'COMPLETED') {
+                notificationTitle = 'Appointment Completed';
+                notificationMessage =
+                    `Your appointment for ${updatedAppointment.service.name} has been completed.`;
+                notificationType = 'APPOINTMENT_COMPLETED';
+            }
+
+            if (status === 'REJECTED') {
+                notificationTitle = 'Appointment Rejected';
+                notificationMessage =
+                    `Your appointment for ${updatedAppointment.service.name} was rejected. Reason: ${rejectionReason}`;
+                notificationType = 'APPOINTMENT_REJECTED';
+            }
+
+            if (status === 'CANCELLED') {
+                notificationTitle = 'Appointment Cancelled';
+                notificationMessage =
+                    `Your appointment for ${updatedAppointment.service.name} has been cancelled.`;
+                notificationType = 'APPOINTMENT_CANCELLED';
+            }
+
+            // ✅ Create notification only if needed
+            if (notificationTitle) {
+                await prisma.notification.create({
+                    data: {
+                        userId: updatedAppointment.userId,
+                        title: notificationTitle,
+                        message: notificationMessage,
+                        type: notificationType,
+                        relatedId: updatedAppointment.id
+                    }
+                });
+
+                console.log('Notification created');
+            }
+
+        } catch (notificationError) {
+            console.error(
+                'Notification creation failed:',
+                notificationError.message
+            );
+        }
+
+        // ✅ Success response
+        return res.status(200).json({
+            success: true,
             message: `Appointment updated to ${status}`,
-            data: appointment
+            data: updatedAppointment
         });
 
     } catch (error) {
-        console.error("UPDATE ERROR:", error);
-        res.status(500).json({
+
+        console.error('UPDATE APPOINTMENT STATUS ERROR');
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
             message: 'Failed to update appointment status',
             error: error.message
         });
     }
-};
-
-// ========================
-// 📦 EXPORTS
-// ========================
-module.exports = {
-    bookAppointment,
-    getMyAppointments,
-    getSectorAppointments,
-    getAvailableSlots,
-    cancelAppointment,
-    updateAppointmentStatus
 };

@@ -86,67 +86,151 @@ const takeTicket = async (req, res) => {
     }
 };
 
-const getMyQueueStatus = async (req, res) => {
-    const userId = req.user.id;
+// ========================
+// 🔄 UPDATE QUEUE STATUS
+// ========================
+const updateQueueStatus = async (req, res) => {
+    const { queueId } = req.params;
+    const { status, remarks } = req.body;
+    const officerId = req.user.id;
+
+    console.log('[updateQueueStatus]');
+    console.log('queueId:', queueId);
+    console.log('status:', status);
+    console.log('officerId:', officerId);
+
+    const allowedStatuses = [
+        'WAITING',
+        'CALLING',
+        'PROCESSING',
+        'COMPLETED',
+        'REJECTED',
+        'CANCELLED'
+    ];
+
     try {
-        const queue = await prisma.queue.findFirst({
-            where: { userId, status: { in: ['WAITING', 'CALLING', 'PROCESSING'] } },
-            include: { service: { include: { sector: true } } },
-            orderBy: { createdAt: 'desc' }
-        });
 
-        if (!queue) return res.json(null);
+        // ✅ Validate status
+        if (!status || !allowedStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid queue status'
+            });
+        }
 
-        const peopleAhead = await prisma.queue.count({
+        // ✅ Find queue first
+        const existingQueue = await prisma.queue.findUnique({
             where: {
-                serviceId: queue.serviceId,
-                status: 'WAITING',
-                ticketNumber: { lt: queue.ticketNumber }
+                id: String(queueId)
+            },
+            include: {
+                service: true,
+                user: true
             }
         });
 
-        res.json({ ...queue, peopleAhead });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch queue status', error: error.message });
-    }
-};
+        if (!existingQueue) {
+            return res.status(404).json({
+                success: false,
+                message: 'Queue ticket not found'
+            });
+        }
 
-const getQueueList = async (req, res) => {
-    const { sectorId } = req.params;
-    try {
-        const queues = await prisma.queue.findMany({
+        // ✅ Update queue safely
+        const updatedQueue = await prisma.queue.update({
             where: {
-                service: { sectorId },
-                // ✅ Exclude all terminal states from active view
-                status: { notIn: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
+                id: String(queueId)
             },
-            include: { user: true, service: true },
-            orderBy: { createdAt: 'asc' }
+            data: {
+                status,
+                officerId,
+                remarks: remarks || null
+            },
+            include: {
+                service: true,
+                user: true
+            }
         });
-        res.json(queues);
+
+        console.log('Queue updated successfully');
+
+        // =========================
+        // 🔔 CREATE NOTIFICATION
+        // =========================
+
+        try {
+
+            let title = '';
+            let message = '';
+            let type = '';
+
+            if (status === 'CALLING') {
+                title = 'Your Turn';
+                message =
+                    `Please proceed to the counter for ${updatedQueue.service.name}.`;
+                type = 'QUEUE_CALLED';
+            }
+
+            if (status === 'PROCESSING') {
+                title = 'Queue Processing';
+                message =
+                    `Your request for ${updatedQueue.service.name} is now being processed.`;
+                type = 'QUEUE_PROCESSING';
+            }
+
+            if (status === 'COMPLETED') {
+                title = 'Queue Completed';
+                message =
+                    `Your queue request for ${updatedQueue.service.name} has been completed.`;
+                type = 'QUEUE_COMPLETED';
+            }
+
+            if (status === 'REJECTED') {
+                title = 'Queue Request Rejected';
+                message =
+                    `Your queue request for ${updatedQueue.service.name} was rejected.`;
+                type = 'QUEUE_REJECTED';
+            }
+
+            if (title) {
+                await prisma.notification.create({
+                    data: {
+                        userId: updatedQueue.userId,
+                        title,
+                        message,
+                        type,
+                        relatedId: updatedQueue.id
+                    }
+                });
+
+                console.log('Queue notification created');
+            }
+
+        } catch (notifError) {
+            console.error(
+                'Notification error:',
+                notifError.message
+            );
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Queue updated to ${status}`,
+            data: updatedQueue
+        });
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch queue list', error: error.message });
+
+        console.error('QUEUE STATUS UPDATE ERROR');
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update queue status',
+            error: error.message
+        });
     }
 };
-
-const getQueueHistory = async (req, res) => {
-    const { sectorId } = req.params;
-    try {
-        const queues = await prisma.queue.findMany({
-            where: {
-                service: { sectorId },
-                // ✅ Include CANCELLED in history so officers see the full picture
-                status: { in: ['COMPLETED', 'REJECTED', 'CANCELLED'] }
-            },
-            include: { user: true, service: true },
-            orderBy: { updatedAt: 'desc' }
-        });
-        res.json(queues);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch queue history', error: error.message });
-    }
-};
-
 const updateQueueStatus = async (req, res) => {
     const { queueId } = req.params;
     const { status, remarks } = req.body;
