@@ -1,3 +1,0 @@
--- Placeholder migration file restored for Prisma history integrity.
--- No additional schema operation is required because equivalent changes
--- already exist in previous migration history.

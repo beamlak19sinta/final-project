@@ -4,11 +4,10 @@ const prisma = require('../utils/prisma');
    TAKE TICKET
 ========================================================= */
 const takeTicket = async (req, res) => {
-    console.log('[takeTicket] req.body:', req.body);
-    const serviceIdRaw = req.body.serviceId || req.body.service_id;
-    const userId = req.user.id;
-
     try {
+        const serviceIdRaw = req.body.serviceId || req.body.service_id;
+        const userId = req.user.id;
+
         if (!serviceIdRaw || typeof serviceIdRaw !== 'string' || !serviceIdRaw.trim()) {
             return res.status(400).json({ message: 'serviceId is required' });
         }
@@ -19,9 +18,7 @@ const takeTicket = async (req, res) => {
             where: { id: serviceId }
         });
 
-        if (!service) {
-            return res.status(404).json({ message: 'Service not found' });
-        }
+        if (!service) return res.status(404).json({ message: 'Service not found' });
 
         if (service.mode !== 'QUEUE') {
             return res.status(400).json({ message: 'Not a queue service' });
@@ -43,10 +40,7 @@ const takeTicket = async (req, res) => {
         }
 
         const ticketCount = await prisma.queue.count({
-            where: {
-                serviceId,
-                createdAt: { gte: startOfDay }
-            }
+            where: { serviceId, createdAt: { gte: startOfDay } }
         });
 
         const queue = await prisma.queue.create({
@@ -59,43 +53,31 @@ const takeTicket = async (req, res) => {
             include: { service: true }
         });
 
-        try {
-            await prisma.notification.create({
-                data: {
-                    userId,
-                    title: 'Queue Created',
-                    message: `Ticket #${queue.ticketNumber} for ${queue.service.name}`,
-                    type: 'QUEUE_ISSUED',
-                    relatedId: queue.id
-                }
-            });
-        } catch (e) {}
-
-        res.status(201).json(queue);
+        return res.status(201).json(queue);
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
 /* =========================================================
-   UPDATE QUEUE STATUS (ONLY ONE VERSION - FIXED)
+   UPDATE QUEUE STATUS (ONLY ONE VERSION)
 ========================================================= */
 const updateQueueStatus = async (req, res) => {
-    const { queueId } = req.params;
-    const { status, remarks } = req.body;
-    const officerId = req.user.id;
-
-    const allowed = [
-        'WAITING',
-        'CALLING',
-        'PROCESSING',
-        'COMPLETED',
-        'REJECTED',
-        'CANCELLED'
-    ];
-
     try {
+        const { queueId } = req.params;
+        const { status, remarks } = req.body;
+        const officerId = req.user.id;
+
+        const allowed = [
+            'WAITING',
+            'CALLING',
+            'PROCESSING',
+            'COMPLETED',
+            'REJECTED',
+            'CANCELLED'
+        ];
+
         if (!allowed.includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
         }
@@ -119,7 +101,7 @@ const updateQueueStatus = async (req, res) => {
             include: { service: true, user: true }
         });
 
-        // Notifications
+        // Notification (only important ones)
         let title = '';
         let message = '';
         let type = '';
@@ -160,20 +142,20 @@ const updateQueueStatus = async (req, res) => {
             });
         }
 
-        res.json(updated);
+        return res.json(updated);
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
 /* =========================================================
-   GET MY QUEUE STATUS
+   GET MY STATUS
 ========================================================= */
 const getMyQueueStatus = async (req, res) => {
-    const userId = req.user.id;
-
     try {
+        const userId = req.user.id;
+
         const queue = await prisma.queue.findFirst({
             where: {
                 userId,
@@ -193,10 +175,10 @@ const getMyQueueStatus = async (req, res) => {
             }
         });
 
-        res.json({ ...queue, peopleAhead });
+        return res.json({ ...queue, peopleAhead });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
@@ -204,9 +186,9 @@ const getMyQueueStatus = async (req, res) => {
    GET QUEUE LIST
 ========================================================= */
 const getQueueList = async (req, res) => {
-    const { sectorId } = req.params;
-
     try {
+        const { sectorId } = req.params;
+
         const queues = await prisma.queue.findMany({
             where: {
                 service: { sectorId },
@@ -216,10 +198,10 @@ const getQueueList = async (req, res) => {
             orderBy: { createdAt: 'asc' }
         });
 
-        res.json(queues);
+        return res.json(queues);
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
@@ -227,10 +209,10 @@ const getQueueList = async (req, res) => {
    FORWARD TICKET
 ========================================================= */
 const forwardTicket = async (req, res) => {
-    const { queueId } = req.params;
-    const { targetSectorId, remarks } = req.body;
-
     try {
+        const { queueId } = req.params;
+        const { targetSectorId, remarks } = req.body;
+
         const queue = await prisma.queue.findUnique({
             where: { id: queueId },
             include: { service: true }
@@ -255,22 +237,22 @@ const forwardTicket = async (req, res) => {
             }
         });
 
-        res.json(updated);
+        return res.json(updated);
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
 /* =========================================================
-   WALK-IN REGISTRATION
+   WALK-IN
 ========================================================= */
 const registerWalkIn = async (req, res) => {
-    const { name, phoneNumber } = req.body;
-    const serviceId = req.body.serviceId || req.body.service_id;
-    const officerId = req.user.id;
-
     try {
+        const { name, phoneNumber } = req.body;
+        const serviceId = req.body.serviceId || req.body.service_id;
+        const officerId = req.user.id;
+
         const user = await prisma.user.upsert({
             where: { phoneNumber },
             update: {},
@@ -284,7 +266,7 @@ const registerWalkIn = async (req, res) => {
         });
 
         const startOfDay = new Date();
-        startOfDay.setHours(0,0,0,0);
+        startOfDay.setHours(0, 0, 0, 0);
 
         const count = await prisma.queue.count({
             where: { serviceId, createdAt: { gte: startOfDay } }
@@ -301,10 +283,10 @@ const registerWalkIn = async (req, res) => {
             include: { service: true }
         });
 
-        res.json(queue);
+        return res.json(queue);
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 

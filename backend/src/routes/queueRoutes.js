@@ -1,25 +1,71 @@
 const express = require('express');
 const router = express.Router();
+
 const queueController = require('../controllers/queueController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
-// Web format endpoints
-router.post('/take', authenticateToken, queueController.takeTicket);
-router.get('/my-status', authenticateToken, queueController.getMyQueueStatus);
-router.get('/my-history', authenticateToken, queueController.getMyQueueHistory);
-router.get('/history/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.getQueueHistory);
-router.get('/list/:sectorId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.getQueueList);
-// Preferred: PATCH /api/queues/:queueId/status  body: { status, remarks? }
-router.patch('/:queueId/status', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'), queueController.updateQueueStatus);
-// Legacy: PATCH /api/queues/status/:queueId
-router.patch('/status/:queueId', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'), queueController.updateQueueStatus);
-router.post('/forward/:queueId', authenticateToken, authorizeRoles('OFFICER'), queueController.forwardTicket);
-router.delete('/:queueId', authenticateToken, queueController.cancelTicket);
-router.post('/register-walkin', authenticateToken, authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'), queueController.registerWalkIn);
+/* =========================================================
+   CORE QUEUE ROUTES (CLEAN VERSION - NO CRASH)
+========================================================= */
 
-// Mobile format aliases (for backward compatibility)
-router.post('/', authenticateToken, queueController.takeTicket); // Alias for /take
-router.get('/active', authenticateToken, queueController.getMyQueueStatus); // Alias for /my-status
-router.get('/:queueId', authenticateToken, queueController.getQueueById); // New endpoint for mobile
+// 🔹 Take ticket
+router.post(
+    '/take',
+    authenticateToken,
+    queueController.takeTicket
+);
+
+// 🔹 Alias for mobile/web
+router.post(
+    '/',
+    authenticateToken,
+    queueController.takeTicket
+);
+
+// 🔹 Get current active queue status
+router.get(
+    '/my-status',
+    authenticateToken,
+    queueController.getMyQueueStatus
+);
+
+// 🔹 Alias for active status
+router.get(
+    '/active',
+    authenticateToken,
+    queueController.getMyQueueStatus
+);
+
+// 🔹 Get queue list for officers
+router.get(
+    '/list/:sectorId',
+    authenticateToken,
+    authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'),
+    queueController.getQueueList
+);
+
+// 🔹 Update queue status (CALLING, PROCESSING, etc.)
+router.patch(
+    '/:queueId/status',
+    authenticateToken,
+    authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK'),
+    queueController.updateQueueStatus
+);
+
+// 🔹 Forward ticket to another sector
+router.post(
+    '/forward/:queueId',
+    authenticateToken,
+    authorizeRoles('OFFICER'),
+    queueController.forwardTicket
+);
+
+// 🔹 Register walk-in user (officer only)
+router.post(
+    '/register-walkin',
+    authenticateToken,
+    authorizeRoles('OFFICER', 'HELPDESK', 'HELP_DESK', 'ADMIN'),
+    queueController.registerWalkIn
+);
 
 module.exports = router;
