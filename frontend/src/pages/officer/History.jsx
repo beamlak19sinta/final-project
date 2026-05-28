@@ -85,6 +85,7 @@ export default function History() {
         switch (status) {
             case 'COMPLETED': return 'bg-green-500';
             case 'REJECTED': return 'bg-red-500';
+            case 'CANCELLED': return 'bg-gray-400';
             default: return 'bg-muted';
         }
     };
@@ -215,8 +216,9 @@ export default function History() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">{lang === 'en' ? 'All' : 'ሁሉም'}</SelectItem>
-                                <SelectItem value="COMPLETED">{lang === 'en' ? 'Completed' : 'ተጠናቋል'}</SelectItem>
+                                <SelectItem value="COMPLETED">{lang === 'en' ? 'Completed' : 'ተጠናቁዋል'}</SelectItem>
                                 <SelectItem value="REJECTED">{lang === 'en' ? 'Rejected' : 'ውድቅ'}</SelectItem>
+                                <SelectItem value="CANCELLED">{lang === 'en' ? 'Cancelled' : 'ተሰርዟል'}</SelectItem>
                             </SelectContent>
                         </Select>
 

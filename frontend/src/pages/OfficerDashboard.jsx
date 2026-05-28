@@ -87,7 +87,8 @@ export default function OfficerDashboard() {
 
     const handleUpdateStatus = async (queueId, status) => {
         try {
-            await api.patch(`/queues/status/${queueId}`, { status });
+            // ✅ Use the preferred PATCH /:queueId/status route
+            await api.patch(`/queues/${queueId}/status`, { status });
             fetchQueue();
         } catch (err) {
             console.error('Failed to update status', err);
@@ -218,7 +219,8 @@ export default function OfficerDashboard() {
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
-                                        {(user?.role === 'HELPDESK' || user?.role === 'HELP_DESK') && (
+                                        {/* Walk-in available for OFFICER and HELPDESK roles */}
+                                        {(user?.role === 'OFFICER' || user?.role === 'HELPDESK' || user?.role === 'HELP_DESK') && (
                                             <Button
                                                 variant="outline"
                                                 size="lg"
@@ -231,7 +233,11 @@ export default function OfficerDashboard() {
                                         <Button
                                             size="lg"
                                             className="rounded-2xl h-14 px-8 bg-primary hover:bg-primary/90 font-black gap-3 shadow-xl shadow-primary/20"
-                                            onClick={() => queues[0] && handleUpdateStatus(queues[0].id, 'CALLING')}
+                                            onClick={() => {
+                                                // ✅ Find the first WAITING ticket, not just queues[0]
+                                                const nextWaiting = queues.find(q => q.status === 'WAITING');
+                                                if (nextWaiting) handleUpdateStatus(nextWaiting.id, 'CALLING');
+                                            }}
                                             disabled={queues.length === 0 || queues.some(q => q.status === 'CALLING')}
                                         >
                                             {t.offCallNext?.toUpperCase()} <ArrowRight className="w-5 h-5" />

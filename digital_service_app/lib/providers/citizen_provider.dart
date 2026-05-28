@@ -40,130 +40,44 @@ class CitizenProvider extends ChangeNotifier {
   List<ServiceItem> get onlineServices => _onlineServicesCache;
 
   void _rebuildServiceCaches() {
-    String queueId = '';
-    String appointmentId = '';
-    String onlineId = '';
+    // Build caches from REAL services fetched from the database.
+    // This ensures every service shown in the UI carries its own valid DB UUID,
+    // preventing FK constraint violations on queue/appointment creation.
+    final allServices = <ServiceItem>[];
 
     for (final sector in citizenSectors) {
       for (final service in sector.services) {
-        if (service.mode == 'QUEUE' && queueId.isEmpty) {
-          queueId = service.id;
-        }
-        if (service.mode == 'APPOINTMENT' && appointmentId.isEmpty) {
-          appointmentId = service.id;
-        }
-        if (service.mode == 'ONLINE' && onlineId.isEmpty) {
-          onlineId = service.id;
-        }
+        allServices.add(ServiceItem(
+          id: service.id,
+          name: service.name,
+          description: service.description,
+          mode: service.mode,
+          availability: service.availability,
+          sectorName: service.sectorName ?? sector.name,
+        ));
       }
     }
 
     for (final sector in supportSectors) {
       for (final service in sector.services) {
-        if (service.mode == 'QUEUE' && queueId.isEmpty) {
-          queueId = service.id;
-        }
-        if (service.mode == 'APPOINTMENT' && appointmentId.isEmpty) {
-          appointmentId = service.id;
-        }
-        if (service.mode == 'ONLINE' && onlineId.isEmpty) {
-          onlineId = service.id;
-        }
+        allServices.add(ServiceItem(
+          id: service.id,
+          name: service.name,
+          description: service.description,
+          mode: service.mode,
+          availability: service.availability,
+          sectorName: service.sectorName ?? sector.name,
+        ));
       }
     }
 
-    if (queueId.isEmpty) queueId = 'fallback-queue-id';
-    if (appointmentId.isEmpty) appointmentId = 'fallback-appointment-id';
-    if (onlineId.isEmpty) onlineId = 'fallback-online-id';
-
-    final civilStatusServices = [
-      ServiceItem(id: queueId, name: 'National Digital ID Registration', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Register for a new digital national identity card.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: queueId, name: 'National Digital ID Renewal', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Renew an expired national digital identity card.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: queueId, name: 'Lost National ID Replacement', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Request replacement for a lost or damaged identity card.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: queueId, name: 'Kebele Household Registration', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Queue for family household member registration.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: queueId, name: 'Resident ID Verification', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Verify local residential identity records.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: queueId, name: 'Civil Registration Record Verification', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Verify civil status, birth, or marriage registration records.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: appointmentId, name: 'Birth Certificate Request', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Schedule birth certificate verification and printing.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: appointmentId, name: 'Death Certificate Request', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Schedule death certificate verification and registration.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: appointmentId, name: 'Boundary Verification Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Book surveyor appointment for boundary check.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: appointmentId, name: 'Agricultural Land Certification Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Book appointment for agricultural land registration.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: onlineId, name: 'Request Document Correction', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Request corrections to official birth/marriage certificates.', sectorName: 'Civil Status Services'),
-      ServiceItem(id: onlineId, name: 'Land Information Inquiry Portal', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Inquire about land registers, zoning, and plots.', sectorName: 'Civil Status Services'),
-    ];
-
-    final immigrationServices = [
-      ServiceItem(id: appointmentId, name: 'Passport Document Verification', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Verify original documents for passport registration.', sectorName: 'Immigration and Nationality'),
-      ServiceItem(id: appointmentId, name: 'Immigration Interview Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Required interview for residency or travel permits.', sectorName: 'Immigration and Nationality'),
-    ];
-
-    final transportServices = [
-      ServiceItem(id: queueId, name: 'Vehicle Ownership Transfer', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Queue for registering vehicle purchase and transfer.', sectorName: 'Transport and Logistics'),
-      ServiceItem(id: queueId, name: 'Driving License Renewal', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Queue for renewal or replacement of driver license.', sectorName: 'Transport and Logistics'),
-    ];
-
-    final taxServices = [
-      ServiceItem(id: queueId, name: 'TIN Number Registration', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Register and obtain Tax Identification Number.', sectorName: 'Revenue and Tax'),
-      ServiceItem(id: appointmentId, name: 'Tax Clearance Collection Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Collect official annual tax clearance statement.', sectorName: 'Revenue and Tax'),
-      ServiceItem(id: appointmentId, name: 'Revenue Service Consultation', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Formal consulting with tax officers.', sectorName: 'Revenue and Tax'),
-      ServiceItem(id: appointmentId, name: 'Property Valuation Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Property valuation and assessment session.', sectorName: 'Revenue and Tax'),
-      ServiceItem(id: onlineId, name: 'Tax Record Summary Inquiry', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Retrieve tax statement records and payments.', sectorName: 'Revenue and Tax'),
-    ];
-
-    final businessServices = [
-      ServiceItem(id: queueId, name: 'Business License Renewal', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Queue for annual renewal of commercial licenses.', sectorName: 'Business and Trade'),
-      ServiceItem(id: appointmentId, name: 'Urban Planning Approval Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Plan review for construction permits.', sectorName: 'Business and Trade'),
-      ServiceItem(id: appointmentId, name: 'Investment License Consultation', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Consult with investment board specialists.', sectorName: 'Business and Trade'),
-      ServiceItem(id: appointmentId, name: 'Construction Permit Inspection Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Schedule onsite inspection for construction permit.', sectorName: 'Business and Trade'),
-      ServiceItem(id: appointmentId, name: 'Business Inspection Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Onsite inspection for commercial businesses.', sectorName: 'Business and Trade'),
-      ServiceItem(id: onlineId, name: 'Business Name Availability Check', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Search database for name availability.', sectorName: 'Business and Trade'),
-    ];
-
-    final generalServices = [
-      ServiceItem(id: queueId, name: 'Police Clearance Application', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Request fingerprinting and background checks.', sectorName: 'General Inquiry'),
-      ServiceItem(id: queueId, name: 'Education Certificate Authentication', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Authenticate school/university degrees.', sectorName: 'General Inquiry'),
-      ServiceItem(id: queueId, name: 'Land Title Transfer Submission', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Submit documents for official land ownership transfer.', sectorName: 'General Inquiry'),
-      ServiceItem(id: queueId, name: 'Utility Bill Support Counter', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Resolve utility bill issues and payment disputes.', sectorName: 'General Inquiry'),
-      ServiceItem(id: queueId, name: 'Government Document Collection', mode: 'QUEUE', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Collect approved and printed official documents.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'Social Support Service Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Meet with social worker for welfare assessment.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'New Water Connection Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Request new water infrastructure installation connection.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'New Electricity Connection Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Request new electricity power installation connection.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'Court Hearing Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Register for scheduled court arbitration.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'Public Housing Application Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Apply for public/governmental housing schemes.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'Land Lease Consultation Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Consultation for leasing government/urban land.', sectorName: 'General Inquiry'),
-      ServiceItem(id: appointmentId, name: 'Disability Support Registration Appointment', mode: 'APPOINTMENT', availability: 'Mon - Fri (08:30 - 17:30)', description: 'Registration for disability welfare programs.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Download Government Forms', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Download PDF applications and regulations.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Submit Complaint', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Submit formal service complaints to city board.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Submit Feedback', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Submit anonymous portal usability reviews.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Utility Bill Information Check', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Check unpaid utility bill dues.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Government Notices Board', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Read latest municipal newsletters.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'Lost Document Reporting', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Formally report lost cards or files.', sectorName: 'General Inquiry'),
-      ServiceItem(id: onlineId, name: 'FAQ Help Center', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Read dynamic help center answers.', sectorName: 'General Inquiry'),
-    ];
-
-    final technicalServices = [
-      ServiceItem(id: onlineId, name: 'Check Application Status (All Services)', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Verify queue status or online request.', sectorName: 'Technical Support'),
-      ServiceItem(id: onlineId, name: 'Certificate Verification System', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Verify integrity of printed QR certificates.', sectorName: 'Technical Support'),
-      ServiceItem(id: onlineId, name: 'Application Tracking System', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Dynamic dashboard tracking current requests.', sectorName: 'Technical Support'),
-      ServiceItem(id: onlineId, name: 'Notification Center', mode: 'ONLINE', availability: '24/7 Online Request', description: 'Real-time alert log.', sectorName: 'Technical Support'),
-    ];
-
-    final allApprovedServices = [
-      ...civilStatusServices,
-      ...immigrationServices,
-      ...transportServices,
-      ...taxServices,
-      ...businessServices,
-      ...generalServices,
-      ...technicalServices,
-    ];
-
-    _appointmentServicesCache = allApprovedServices
+    _appointmentServicesCache = allServices
         .where((service) => service.mode == 'APPOINTMENT')
         .toList(growable: false);
-    _queueServicesCache = allApprovedServices
+    _queueServicesCache = allServices
         .where((service) => service.mode == 'QUEUE')
         .toList(growable: false);
-    _onlineServicesCache = allApprovedServices
+    _onlineServicesCache = allServices
         .where((service) => service.mode == 'ONLINE')
         .toList(growable: false);
   }

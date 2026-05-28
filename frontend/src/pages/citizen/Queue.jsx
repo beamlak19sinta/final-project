@@ -195,7 +195,7 @@ export default function Queue() {
                                         <p className="text-sm text-muted-foreground font-semibold">{new Date(req.createdAt).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                                <Badge variant={req.status === 'COMPLETED' ? 'success' : req.status === 'REJECTED' ? 'destructive' : 'secondary'} className="rounded-lg font-bold">
+                                <Badge variant={req.status === 'COMPLETED' ? 'success' : req.status === 'REJECTED' ? 'destructive' : req.status === 'CANCELLED' ? 'secondary' : 'secondary'} className="rounded-lg font-bold">
                                     {t[req.status] || req.status}
                                 </Badge>
                             </Card>
